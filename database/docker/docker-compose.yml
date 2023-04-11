@@ -23,6 +23,16 @@ services:
       - "5050:80"
     volumes:
         - ./servers.json:/pgadmin4/servers.json
+  docker_ferretdb:
+    image: ghcr.io/ferretdb/ferretdb
+    restart: on-failure
+    ports:
+      - 27017:27017
+    environment:
+      - FERRETDB_POSTGRESQL_URL=postgres://docker_postgres:5432/postgres
 volumes:
   db:
     driver: local
+networks:
+  default:
+    name: comet

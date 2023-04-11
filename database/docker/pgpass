@@ -1,1 +1,1 @@
-docker_postgres:5432:postgres:postgres:postgres
+docker_postgres:5432:ferretdb:postgres:postgres
