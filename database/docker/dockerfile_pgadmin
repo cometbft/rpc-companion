@@ -1,0 +1,11 @@
+FROM dpage/pgadmin4
+USER pgadmin
+RUN mkdir -p  /var/lib/pgadmin/storage/pgadmin
+COPY ./pgpass /var/lib/pgadmin/storage/pgadmin/
+USER root
+# pgAdmin runs as the pgadmin user (UID: 5050)
+# in the pgadmin group (GID: 5050) in the container
+RUN chown 5050:5050 /var/lib/pgadmin/storage/pgadmin/pgpass
+RUN chmod 0600 /var/lib/pgadmin/storage/pgadmin/pgpass
+USER pgadmin
+ENTRYPOINT ["/entrypoint.sh"]

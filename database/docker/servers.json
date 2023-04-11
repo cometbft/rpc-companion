@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "comet_postgres",
+      "Group": "comet_postgres_group",
+      "Host": "docker_postgres",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "postgres",
+      "PassFile": "/pgpass",
+      "SSLMode": "prefer"
+    }
+  }
+}
