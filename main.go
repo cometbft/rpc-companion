@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/lib/pq"
+	"io"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -34,12 +37,36 @@ type PostgresStorage struct {
 
 func (c *CometFetcher) Fetch(endpoint string) ([]byte, error) {
 	fmt.Println("Fetching...")
-	return nil, nil
+	url := fmt.Sprintf("http://localhost:26657/%s", endpoint)
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return body, nil
 }
 
-func (c *PostgresStorage) Insert(table string, value string) (bool, error) {
-	insertStmt := fmt.Sprintf("INSERT INTO comet.%s(blob) VALUES (%s)", table, value)
-	_, err := c.Connection.Exec(insertStmt)
+func (c *PostgresStorage) Insert(table string, value []byte) (bool, error) {
+
+	data := json.RawMessage(value)
+	insertStmt := fmt.Sprintf("INSERT INTO comet.%s(blob) VALUES ($1)", table)
+	_, err := c.Connection.Exec(insertStmt, data)
 	if err != nil {
 		return false, err
 	} else {
@@ -47,7 +74,6 @@ func (c *PostgresStorage) Insert(table string, value string) (bool, error) {
 	}
 }
 
-// Maybe use generics to return a database connection
 func (c *PostgresStorage) Connect() error {
 	db, err := sql.Open("postgres", c.ConnectionString)
 	if err != nil {
@@ -71,6 +97,7 @@ func (c *PostgresStorage) Connect() error {
 }
 
 func main() {
+
 	fetcher := CometFetcher{
 		Endpoint: "http://localhost:26657",
 	}
@@ -80,24 +107,32 @@ func main() {
 		Connection:       nil,
 	}
 
-	_, err := fetcher.Fetch("/block")
+	for height := 1; height <= 50; height++ {
 
-	err = storage.Connect()
-	if err != nil {
-		panic(err)
+		resp, err := fetcher.Fetch(fmt.Sprintf("block?height=%d", height))
+		if err != nil {
+			log.Fatalf("Error fetching height %d: %s\n", height, err)
+		}
+
+		// Connect to the database
+		err = storage.Connect()
+		if err != nil {
+			panic(err)
+		}
+
+		inserted, err := storage.Insert("blocks", resp)
+		if err != nil {
+			fmt.Printf("Error inserting height %d: %s\n", height, err)
+		}
+		if inserted {
+			fmt.Printf("Inserted height %d successfully\n", height)
+		}
 	}
+
 	defer func(ps PostgresStorage) {
 		err := ps.Connection.Close()
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}(storage)
-
-	inserted, err := storage.Insert("blocks", "'{\"jsonrpc\":\"2.0\",\"id\":-1,\"result\":{\"height\":\"3\",\"txs_results\":null,\"begin_block_events\":null,\"end_block_events\":null,\"validator_updates\":null,\"consensus_param_updates\":null}}'")
-	if err != nil {
-		fmt.Printf("Error inserting: %s\n", err)
-	}
-	if inserted {
-		fmt.Println("Inserted successfully")
-	}
 }
