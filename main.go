@@ -12,13 +12,20 @@ import (
 	"time"
 )
 
+const connstr = "postgres://postgres:postgres@0.0.0.0:15432/postgres?sslmode=disable"
+
 type Storage interface {
 	Insert(table string, value string) (bool, error)
+	Get(table string, query string) ([]byte, error)
 	Connect(conn string) error
 }
 
 type Fetcher interface {
 	Fetch(endpoint string) ([]byte, error)
+}
+
+type Service interface {
+	Serve()
 }
 
 type IngestService struct {
@@ -35,10 +42,15 @@ type PostgresStorage struct {
 	Connection       *sql.DB
 }
 
+type RESTService struct {
+	Version string
+}
+
 func (c *CometFetcher) Fetch(endpoint string) ([]byte, error) {
-	fmt.Println("Fetching...")
+
 	url := fmt.Sprintf("http://localhost:26657/%s", endpoint)
 	method := "GET"
+	fmt.Printf("Fetching %s\n", url)
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)
@@ -63,7 +75,6 @@ func (c *CometFetcher) Fetch(endpoint string) ([]byte, error) {
 }
 
 func (c *PostgresStorage) Insert(table string, value []byte) (bool, error) {
-
 	data := json.RawMessage(value)
 	insertStmt := fmt.Sprintf("INSERT INTO comet.%s(blob) VALUES ($1)", table)
 	_, err := c.Connection.Exec(insertStmt, data)
@@ -74,6 +85,19 @@ func (c *PostgresStorage) Insert(table string, value []byte) (bool, error) {
 	}
 }
 
+func (c *PostgresStorage) Get(table string, parameter string) ([]byte, error) {
+	var response []byte
+	queryStmt := fmt.Sprintf("SELECT * FROM comet.%s WHERE blob @> '{\"result\":{\"block\":{\"header\":{\"height\": \"%s\"}}}}';", table, parameter)
+	err := c.Connection.QueryRow(queryStmt).Scan(&response)
+	if err != nil {
+		return nil, err
+	} else {
+		return response, nil
+	}
+}
+
+//SELECT * FROM comet.blocks WHERE blob @> '{"result":{"block":{"header":{"height": "45"}}}}';
+
 func (c *PostgresStorage) Connect() error {
 	db, err := sql.Open("postgres", c.ConnectionString)
 	if err != nil {
@@ -82,8 +106,8 @@ func (c *PostgresStorage) Connect() error {
 		c.Connection = db
 	}
 
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(50)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -96,6 +120,53 @@ func (c *PostgresStorage) Connect() error {
 	return nil
 }
 
+func (s *RESTService) Serve(storage *PostgresStorage) {
+	// Handler for the block endpoint
+	http.HandleFunc(fmt.Sprintf("/%s/block", s.Version), handleBlock)
+
+	// Start the service
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatalln("There's an error starting the REST service:", err)
+	} else {
+		log.Println("Started REST service...")
+	}
+}
+
+// Handles the '/v1/block' endpoint
+func handleBlock(writer http.ResponseWriter, request *http.Request) {
+
+	// Database connection
+	storage := PostgresStorage{
+		ConnectionString: connstr,
+		Connection:       nil,
+	}
+
+	// Connect to the database
+	err := storage.Connect()
+	if err != nil {
+		log.Println("Error connecting to storage in handleBlock: ", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("Internal Server Error"))
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+
+	if request.Method == "GET" {
+		height := request.URL.Query()["height"][0]
+		block, err := storage.Get("blocks", height)
+		if err != nil {
+			log.Println("Error retrieving record from storage in handleBlock: ", err)
+			writer.WriteHeader(http.StatusInternalServerError)
+			writer.Write([]byte("Internal Server Error"))
+		}
+		writer.Write(block)
+	} else {
+		writer.WriteHeader(http.StatusBadRequest)
+		writer.Write([]byte("Bad Request"))
+	}
+}
+
 func main() {
 
 	fetcher := CometFetcher{
@@ -103,21 +174,25 @@ func main() {
 	}
 
 	storage := PostgresStorage{
-		ConnectionString: "postgres://postgres:postgres@0.0.0.0:15432/postgres?sslmode=disable",
+		ConnectionString: connstr,
 		Connection:       nil,
 	}
 
-	for height := 1; height <= 50; height++ {
+	service := RESTService{
+		Version: "v1",
+	}
+
+	// Connect to the database
+	err := storage.Connect()
+	if err != nil {
+		panic(err)
+	}
+
+	for height := 1; height <= 100; height++ {
 
 		resp, err := fetcher.Fetch(fmt.Sprintf("block?height=%d", height))
 		if err != nil {
 			log.Fatalf("Error fetching height %d: %s\n", height, err)
-		}
-
-		// Connect to the database
-		err = storage.Connect()
-		if err != nil {
-			panic(err)
 		}
 
 		inserted, err := storage.Insert("blocks", resp)
@@ -125,7 +200,7 @@ func main() {
 			fmt.Printf("Error inserting height %d: %s\n", height, err)
 		}
 		if inserted {
-			fmt.Printf("Inserted height %d successfully\n", height)
+			fmt.Printf("Inserted height %d\n", height)
 		}
 	}
 
@@ -135,4 +210,6 @@ func main() {
 			log.Fatalln(err)
 		}
 	}(storage)
+
+	service.Serve(&storage)
 }
