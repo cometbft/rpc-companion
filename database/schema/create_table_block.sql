@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS comet.block
     header_time timestamp with time zone NOT NULL,
     CONSTRAINT block_pkey PRIMARY KEY (header_height),
     CONSTRAINT chain_id_fk FOREIGN KEY (header_chain_id)
-    REFERENCES public.chain_id (id) MATCH SIMPLE
+    REFERENCES comet.chain_id (id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION
     NOT VALID,

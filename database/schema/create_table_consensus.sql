@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS comet.consensus
 (
-    id smallint NOT NULL DEFAULT nextval('consensus_id_seq'::regclass),
+    id smallserial NOT NULL,
     block uint64 NOT NULL,
     app uint64 NOT NULL,
     CONSTRAINT consensus_pk PRIMARY KEY (block, app),
