@@ -1,0 +1,4 @@
+-- SCHEMA: comet
+
+CREATE SCHEMA IF NOT EXISTS comet
+    AUTHORIZATION postgres;
