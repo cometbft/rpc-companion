@@ -3,8 +3,8 @@
 CREATE TABLE IF NOT EXISTS comet.consensus
 (
     id smallserial NOT NULL,
-    block uint64 NOT NULL,
-    app uint64 NOT NULL,
+    block comet.uint64 NOT NULL,
+    app comet.uint64 NOT NULL,
     CONSTRAINT consensus_pk PRIMARY KEY (block, app),
     CONSTRAINT block_app_unique UNIQUE (block, app)
     INCLUDE(block, app)
