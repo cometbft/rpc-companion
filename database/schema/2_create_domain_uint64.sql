@@ -3,8 +3,6 @@
 CREATE DOMAIN comet.uint64
     AS numeric;
 
-ALTER DOMAIN comet.uint64 OWNER TO postgres;
-
 ALTER DOMAIN comet.uint64
     ADD CONSTRAINT value_max CHECK (VALUE <= '18446744073709551615'::numeric);
 
