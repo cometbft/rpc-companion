@@ -61,8 +61,18 @@ func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 }
 
 func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, error) {
-	_, err := c.Connection.Exec("INSERT INTO comet.block (height, version_block, version_app, block_time, chain_id) values ($1,$2,$3,$4, $5)",
-		resultBlock.Block.Height, resultBlock.Block.Version.Block, resultBlock.Block.Version.App, resultBlock.Block.Time, resultBlock.Block.ChainID)
+	_, err := c.Connection.Exec("INSERT INTO comet.result_block (block_id_hash, block_id_parts_hash, block_id_parts_total, block_header_height, block_header_version_block, block_header_version_app, block_header_block_time, block_header_chain_id, block_last_block_id_hash, block_last_block_id_parts_hash, block_last_block_id_part_total) values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11)",
+		resultBlock.BlockID.Hash.String(),
+		resultBlock.BlockID.PartSetHeader.Hash.String(),
+		resultBlock.BlockID.PartSetHeader.Total,
+		resultBlock.Block.Height,
+		resultBlock.Block.Version.Block,
+		resultBlock.Block.Version.App,
+		resultBlock.Block.Time,
+		resultBlock.Block.ChainID,
+		resultBlock.Block.LastBlockID.Hash.String(),
+		resultBlock.Block.LastBlockID.PartSetHeader.Hash.String(),
+		resultBlock.Block.LastBlockID.PartSetHeader.Total)
 	if err != nil {
 		return false, err
 	} else {
@@ -72,13 +82,11 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 
 func (c *PostgresStorage) GetBlock(height int64) (int64, error) {
 	var rowHeight int64
-	row := c.Connection.QueryRow("SELECT height FROM comet.block WHERE height=$1", height)
-	switch err := row.Scan(&rowHeight); err {
-	case sql.ErrNoRows:
+	row := c.Connection.QueryRow("SELECT block_header_height FROM comet.result_block WHERE block_header_height=$1", height)
+	err := row.Scan(&rowHeight)
+	if err != nil {
 		return 0, err
-	case nil:
-		return 0, err
-	default:
+	} else {
 		return rowHeight, err
 	}
 }
@@ -122,7 +130,7 @@ func main() {
 		panic(err)
 	}
 
-	for height := 1; height <= 10; height++ {
+	for height := 1; height <= 50; height++ {
 
 		blockFetched, err := fetcher.FetchBlock(int64(height))
 		if err != nil {
