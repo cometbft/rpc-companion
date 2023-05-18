@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/cometbft/cometbft/libs/json"
 	client "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	_ "github.com/lib/pq"
 	"log"
+	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -45,6 +48,60 @@ type RESTService struct {
 	Version string
 }
 
+func (s *RESTService) Serve(storage *PostgresStorage) {
+	// Handler for the block endpoint
+	http.HandleFunc(fmt.Sprintf("/%s/block", s.Version), handleBlock)
+
+	// Start the service
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatalln("There's an error starting the REST service:", err)
+	} else {
+		log.Println("Started REST service...")
+	}
+}
+
+// Handles the '/v1/block' endpoint
+func handleBlock(writer http.ResponseWriter, request *http.Request) {
+
+	// Database connection
+	storage := PostgresStorage{
+		ConnectionString: connString,
+		Connection:       nil,
+	}
+
+	// Connect to the database
+	err := storage.Connect()
+	if err != nil {
+		log.Println("Error connecting to storage in handleBlock: ", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("Internal Server Error"))
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+
+	if request.Method == "GET" {
+		h := request.URL.Query()["height"][0]
+		height, err := strconv.ParseInt(h, 10, 64)
+		if err != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			writer.Write([]byte("Bad Request. Invalid height"))
+		}
+		fmt.Printf("Block Request. Height: %v\n", height)
+		block, err := storage.GetBlock(height)
+		if err != nil {
+			log.Println("Error retrieving record from storage in handleBlock: ", err)
+			writer.WriteHeader(http.StatusInternalServerError)
+			writer.Write([]byte("Internal Server Error"))
+		}
+		resp, _ := json.Marshal(block)
+		writer.Write(resp)
+	} else {
+		writer.WriteHeader(http.StatusBadRequest)
+		writer.Write([]byte("Bad Request"))
+	}
+}
+
 func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 
 	httpClient, err := client.New("http://localhost:26657", "/websocket")
@@ -80,15 +137,15 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 	}
 }
 
-func (c *PostgresStorage) GetBlock(height int64) (int64, error) {
+func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
+	resultBlock := ctypes.ResultBlock{}
 	var rowHeight int64
 	row := c.Connection.QueryRow("SELECT block_header_height FROM comet.result_block WHERE block_header_height=$1", height)
 	err := row.Scan(&rowHeight)
 	if err != nil {
-		return 0, err
-	} else {
-		return rowHeight, err
+		resultBlock.Block.Height = rowHeight
 	}
+	return resultBlock, err
 }
 
 func (c *PostgresStorage) Connect() error {
@@ -115,10 +172,12 @@ func (c *PostgresStorage) Connect() error {
 
 func main() {
 
+	// Ingest server
 	fetcher := CometFetcher{
 		Endpoint: "http://localhost:26657",
 	}
 
+	// Database storage
 	storage := PostgresStorage{
 		ConnectionString: connString,
 		Connection:       nil,
@@ -130,7 +189,7 @@ func main() {
 		panic(err)
 	}
 
-	for height := 1; height <= 50; height++ {
+	for height := 1; height <= 20; height++ {
 
 		blockFetched, err := fetcher.FetchBlock(int64(height))
 		if err != nil {
@@ -144,13 +203,6 @@ func main() {
 		if inserted {
 			fmt.Printf("Inserted height %d\n", height)
 		}
-
-		block, err := storage.GetBlock(int64(height))
-		if err != nil {
-			fmt.Printf("Error retrieving block at height %d: %s\n", height, err)
-		} else {
-			log.Printf("Block at height %d: %v", height, block)
-		}
 	}
 
 	defer func(ps PostgresStorage) {
@@ -159,4 +211,10 @@ func main() {
 			log.Fatalln(err)
 		}
 	}(storage)
+
+	// REST server
+	service := RESTService{
+		Version: "v1",
+	}
+	service.Serve(&storage)
 }
