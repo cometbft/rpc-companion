@@ -7,6 +7,7 @@ import (
 	"github.com/cometbft/cometbft/libs/json"
 	client "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cometbft/cometbft/types"
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
@@ -139,12 +140,13 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 
 func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	resultBlock := ctypes.ResultBlock{}
-	var rowHeight int64
-	row := c.Connection.QueryRow("SELECT block_header_height FROM comet.result_block WHERE block_header_height=$1", height)
-	err := row.Scan(&rowHeight)
+	b := new(types.Block)
+	row := c.Connection.QueryRow("SELECT block_header_height, block_header_chain_id, block_header_block_time FROM comet.result_block WHERE block_header_height=$1", height)
+	err := row.Scan(&b.Header.Height, &b.Header.ChainID, &b.Header.Time)
 	if err != nil {
-		resultBlock.Block.Height = rowHeight
+		return resultBlock, err
 	}
+	resultBlock.Block = b
 	return resultBlock, err
 }
 
@@ -189,7 +191,7 @@ func main() {
 		panic(err)
 	}
 
-	for height := 1; height <= 20; height++ {
+	for height := 1; height <= 100; height++ {
 
 		blockFetched, err := fetcher.FetchBlock(int64(height))
 		if err != nil {
