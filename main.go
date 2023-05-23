@@ -132,6 +132,26 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 		resultBlock.Block.LastBlockID.PartSetHeader.Hash.String(),
 		resultBlock.Block.LastBlockID.PartSetHeader.Total,
 		resultBlock.Block.Data.Hash())
+
+	// Insert transactions if they exist
+	for _, tx := range resultBlock.Block.Data.Txs {
+		_, err := c.InsertTransaction(resultBlock.Block.Header.Height, tx)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
+func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, error) {
+	_, err := c.Connection.Exec("INSERT INTO comet.block_data (height, transaction) values ($1,$2)",
+		height,
+		tx)
 	if err != nil {
 		return false, err
 	} else {
@@ -148,6 +168,23 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		return resultBlock, err
 	}
 	resultBlock.Block = b
+
+	// Retrieve transactions if any
+	var txBytes []byte
+	txs, err := c.Connection.Query("SELECT transaction FROM comet.block_data WHERE height=$1", height)
+	if err != nil {
+		return resultBlock, err
+	}
+	defer txs.Close()
+	for txs.Next() {
+		err := txs.Scan(&txBytes)
+		if err != nil {
+			return resultBlock, err
+		} else {
+			resultBlock.Block.Data.Txs = append(resultBlock.Block.Data.Txs, txBytes)
+		}
+	}
+
 	return resultBlock, err
 }
 
