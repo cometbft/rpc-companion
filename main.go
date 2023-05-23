@@ -119,7 +119,7 @@ func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 }
 
 func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, error) {
-	_, err := c.Connection.Exec("INSERT INTO comet.result_block (block_id_hash, block_id_parts_hash, block_id_parts_total, block_header_height, block_header_version_block, block_header_version_app, block_header_block_time, block_header_chain_id, block_last_block_id_hash, block_last_block_id_parts_hash, block_last_block_id_part_total) values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11)",
+	_, err := c.Connection.Exec("INSERT INTO comet.result_block (block_id_hash, block_id_parts_hash, block_id_parts_total, block_header_height, block_header_version_block, block_header_version_app, block_header_block_time, block_header_chain_id, block_last_block_id_hash, block_last_block_id_parts_hash, block_last_block_id_part_total, block_data_hash) values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12)",
 		resultBlock.BlockID.Hash.String(),
 		resultBlock.BlockID.PartSetHeader.Hash.String(),
 		resultBlock.BlockID.PartSetHeader.Total,
@@ -130,7 +130,8 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 		resultBlock.Block.ChainID,
 		resultBlock.Block.LastBlockID.Hash.String(),
 		resultBlock.Block.LastBlockID.PartSetHeader.Hash.String(),
-		resultBlock.Block.LastBlockID.PartSetHeader.Total)
+		resultBlock.Block.LastBlockID.PartSetHeader.Total,
+		resultBlock.Block.Data.Hash())
 	if err != nil {
 		return false, err
 	} else {
@@ -141,8 +142,8 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	resultBlock := ctypes.ResultBlock{}
 	b := new(types.Block)
-	row := c.Connection.QueryRow("SELECT block_header_height, block_header_chain_id, block_header_block_time FROM comet.result_block WHERE block_header_height=$1", height)
-	err := row.Scan(&b.Header.Height, &b.Header.ChainID, &b.Header.Time)
+	row := c.Connection.QueryRow("SELECT block_header_height, block_header_chain_id, block_header_block_time, block_data_hash FROM comet.result_block WHERE block_header_height=$1", height)
+	err := row.Scan(&b.Header.Height, &b.Header.ChainID, &b.Header.Time, &b.DataHash)
 	if err != nil {
 		return resultBlock, err
 	}
@@ -174,11 +175,6 @@ func (c *PostgresStorage) Connect() error {
 
 func main() {
 
-	// Ingest server
-	fetcher := CometFetcher{
-		Endpoint: "http://localhost:26657",
-	}
-
 	// Database storage
 	storage := PostgresStorage{
 		ConnectionString: connString,
@@ -191,7 +187,31 @@ func main() {
 		panic(err)
 	}
 
-	for height := 1; height <= 100; height++ {
+	// Insert some blocks
+	InsertBlocks(storage)
+
+	defer func(ps PostgresStorage) {
+		err := ps.Connection.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}(storage)
+
+	// REST server
+	service := RESTService{
+		Version: "v1",
+	}
+	service.Serve(&storage)
+}
+
+func InsertBlocks(storage PostgresStorage) {
+
+	// Ingest server
+	fetcher := CometFetcher{
+		Endpoint: "http://localhost:26657",
+	}
+
+	for height := 88050; height <= 88100; height++ {
 
 		blockFetched, err := fetcher.FetchBlock(int64(height))
 		if err != nil {
@@ -206,17 +226,4 @@ func main() {
 			fmt.Printf("Inserted height %d\n", height)
 		}
 	}
-
-	defer func(ps PostgresStorage) {
-		err := ps.Connection.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}(storage)
-
-	// REST server
-	service := RESTService{
-		Version: "v1",
-	}
-	service.Serve(&storage)
 }
