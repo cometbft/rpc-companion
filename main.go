@@ -119,19 +119,47 @@ func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 }
 
 func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, error) {
-	_, err := c.Connection.Exec("INSERT INTO comet.result_block (block_id_hash, block_id_parts_hash, block_id_parts_total, block_header_height, block_header_version_block, block_header_version_app, block_header_block_time, block_header_chain_id, block_last_block_id_hash, block_last_block_id_parts_hash, block_last_block_id_part_total, block_data_hash) values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12)",
+	_, err := c.Connection.Exec("INSERT INTO comet.result_block (block_id_hash, "+
+		"block_id_parts_hash, "+
+		"block_id_parts_total, "+
+		"block_header_height, "+
+		"block_header_version_block, "+
+		"block_header_version_app, "+
+		"block_header_block_time, "+
+		"block_header_chain_id, "+
+		"block_header_last_commit_hash, "+
+		"block_header_data_hash, "+
+		"block_header_validators_hash, "+
+		"block_header_next_validators_hash, "+
+		"block_header_consensus_hash, "+
+		"block_header_app_hash, "+
+		"block_header_last_results_hash, "+
+		"block_header_evidence_hash, "+
+		"block_header_proposer_address, "+
+		"block_last_block_id_hash, "+
+		"block_last_block_id_parts_hash, "+
+		"block_last_block_id_part_total) "+
+		"values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)",
 		resultBlock.BlockID.Hash.String(),
 		resultBlock.BlockID.PartSetHeader.Hash.String(),
 		resultBlock.BlockID.PartSetHeader.Total,
-		resultBlock.Block.Height,
-		resultBlock.Block.Version.Block,
-		resultBlock.Block.Version.App,
-		resultBlock.Block.Time,
-		resultBlock.Block.ChainID,
+		resultBlock.Block.Header.Height,
+		resultBlock.Block.Header.Version.Block,
+		resultBlock.Block.Header.Version.App,
+		resultBlock.Block.Header.Time,
+		resultBlock.Block.Header.ChainID,
+		resultBlock.Block.Header.LastCommitHash,
+		resultBlock.Block.Header.DataHash,
+		resultBlock.Block.Header.ValidatorsHash,
+		resultBlock.Block.Header.NextValidatorsHash,
+		resultBlock.Block.Header.ConsensusHash,
+		resultBlock.Block.Header.AppHash,
+		resultBlock.Block.Header.LastResultsHash,
+		resultBlock.Block.Header.EvidenceHash,
+		resultBlock.Block.Header.ProposerAddress,
 		resultBlock.Block.LastBlockID.Hash,
 		resultBlock.Block.LastBlockID.PartSetHeader.Hash,
-		resultBlock.Block.LastBlockID.PartSetHeader.Total,
-		resultBlock.Block.Data.Hash())
+		resultBlock.Block.LastBlockID.PartSetHeader.Total)
 
 	// Insert transactions if they exist
 	for _, tx := range resultBlock.Block.Data.Txs {
@@ -162,13 +190,40 @@ func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, er
 func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	resultBlock := ctypes.ResultBlock{}
 	b := new(types.Block)
-	row := c.Connection.QueryRow("SELECT block_header_height, block_header_chain_id, block_header_block_time, block_header_version_block, block_header_version_app, block_data_hash, block_last_block_id_hash, block_last_block_id_part_total, block_last_block_id_parts_hash FROM comet.result_block WHERE block_header_height=$1", height)
-	err := row.Scan(&b.Header.Height,
+	row := c.Connection.QueryRow("SELECT "+
+		"block_header_height, "+
+		"block_header_chain_id, "+
+		"block_header_block_time, "+
+		"block_header_version_block, "+
+		"block_header_version_app, "+
+		"block_header_last_commit_hash, "+
+		"block_header_data_hash, "+
+		"block_header_validators_hash, "+
+		"block_header_next_validators_hash, "+
+		"block_header_consensus_hash, "+
+		"block_header_app_hash, "+
+		"block_header_last_results_hash, "+
+		"block_header_evidence_hash, "+
+		"block_header_proposer_address, "+
+		"block_last_block_id_hash, "+
+		"block_last_block_id_part_total, "+
+		"block_last_block_id_parts_hash "+
+		"FROM comet.result_block WHERE block_header_height=$1", height)
+	err := row.Scan(
+		&b.Header.Height,
 		&b.Header.ChainID,
 		&b.Header.Time,
 		&b.Header.Version.Block,
 		&b.Header.Version.App,
-		&b.DataHash,
+		&b.Header.LastCommitHash,
+		&b.Header.DataHash,
+		&b.Header.ValidatorsHash,
+		&b.Header.NextValidatorsHash,
+		&b.Header.ConsensusHash,
+		&b.Header.AppHash,
+		&b.Header.LastResultsHash,
+		&b.Header.EvidenceHash,
+		&b.Header.ProposerAddress,
 		&b.LastBlockID.Hash,
 		&b.LastBlockID.PartSetHeader.Total,
 		&b.LastBlockID.PartSetHeader.Hash)
