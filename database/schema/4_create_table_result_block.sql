@@ -19,9 +19,10 @@ CREATE TABLE IF NOT EXISTS comet.result_block
     block_header_last_results_hash bytea NOT NULL,
     block_header_evidence_hash bytea NOT NULL,
     block_header_proposer_address bytea NOT NULL,
-    block_last_block_id_hash bytea NOT NULL,
-    block_last_block_id_parts_hash bytea NOT NULL,
-    block_last_block_id_part_total comet.uint32 NOT NULL,
+    block_header_last_block_id_hash bytea NOT NULL,
+    block_header_last_block_id_parts_hash bytea NOT NULL,
+    block_header_last_block_id_part_total comet.uint32 NOT NULL,
+
     CONSTRAINT block_pkey PRIMARY KEY (block_header_height),
     CONSTRAINT height_positive CHECK (block_header_height >= 0)
 ) TABLESPACE pg_default;

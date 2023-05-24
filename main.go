@@ -136,9 +136,9 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 		"block_header_last_results_hash, "+
 		"block_header_evidence_hash, "+
 		"block_header_proposer_address, "+
-		"block_last_block_id_hash, "+
-		"block_last_block_id_parts_hash, "+
-		"block_last_block_id_part_total) "+
+		"block_header_last_block_id_hash, "+
+		"block_header_last_block_id_parts_hash, "+
+		"block_header_last_block_id_part_total) "+
 		"values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)",
 		resultBlock.BlockID.Hash.String(),
 		resultBlock.BlockID.PartSetHeader.Hash.String(),
@@ -205,9 +205,9 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		"block_header_last_results_hash, "+
 		"block_header_evidence_hash, "+
 		"block_header_proposer_address, "+
-		"block_last_block_id_hash, "+
-		"block_last_block_id_part_total, "+
-		"block_last_block_id_parts_hash "+
+		"block_header_last_block_id_hash, "+
+		"block_header_last_block_id_part_total, "+
+		"block_header_last_block_id_parts_hash "+
 		"FROM comet.result_block WHERE block_header_height=$1", height)
 	err := row.Scan(
 		&b.Header.Height,
