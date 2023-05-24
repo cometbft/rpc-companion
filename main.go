@@ -119,29 +119,36 @@ func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 }
 
 func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, error) {
-	_, err := c.Connection.Exec("INSERT INTO comet.result_block (block_id_hash, "+
-		"block_id_parts_hash, "+
-		"block_id_parts_total, "+
-		"block_header_height, "+
-		"block_header_version_block, "+
-		"block_header_version_app, "+
-		"block_header_block_time, "+
-		"block_header_chain_id, "+
-		"block_header_last_commit_hash, "+
-		"block_header_data_hash, "+
-		"block_header_validators_hash, "+
-		"block_header_next_validators_hash, "+
-		"block_header_consensus_hash, "+
-		"block_header_app_hash, "+
-		"block_header_last_results_hash, "+
-		"block_header_evidence_hash, "+
-		"block_header_proposer_address, "+
-		"block_header_last_block_id_hash, "+
-		"block_header_last_block_id_parts_hash, "+
-		"block_header_last_block_id_part_total) "+
-		"values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)",
-		resultBlock.BlockID.Hash.String(),
-		resultBlock.BlockID.PartSetHeader.Hash.String(),
+	_, err := c.Connection.Exec(
+		"INSERT INTO comet.result_block "+
+			"(block_id_hash, "+
+			"block_id_parts_hash, "+
+			"block_id_parts_total, "+
+			"block_header_height, "+
+			"block_header_version_block, "+
+			"block_header_version_app, "+
+			"block_header_block_time, "+
+			"block_header_chain_id, "+
+			"block_header_last_commit_hash, "+
+			"block_header_data_hash, "+
+			"block_header_validators_hash, "+
+			"block_header_next_validators_hash, "+
+			"block_header_consensus_hash, "+
+			"block_header_app_hash, "+
+			"block_header_last_results_hash, "+
+			"block_header_evidence_hash, "+
+			"block_header_proposer_address, "+
+			"block_header_last_block_id_hash, "+
+			"block_header_last_block_id_parts_hash, "+
+			"block_header_last_block_id_part_total, "+
+			"block_last_commit_height, "+
+			"block_last_commit_round, "+
+			"block_last_commit_block_id_hash, "+
+			"block_last_commit_block_id_parts_total, "+
+			"block_last_commit_block_id_parts_hash)"+
+			"values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
+		resultBlock.BlockID.Hash,
+		resultBlock.BlockID.PartSetHeader.Hash,
 		resultBlock.BlockID.PartSetHeader.Total,
 		resultBlock.Block.Header.Height,
 		resultBlock.Block.Header.Version.Block,
@@ -159,7 +166,12 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 		resultBlock.Block.Header.ProposerAddress,
 		resultBlock.Block.LastBlockID.Hash,
 		resultBlock.Block.LastBlockID.PartSetHeader.Hash,
-		resultBlock.Block.LastBlockID.PartSetHeader.Total)
+		resultBlock.Block.LastBlockID.PartSetHeader.Total,
+		resultBlock.Block.LastCommit.Height,
+		resultBlock.Block.LastCommit.Round,
+		resultBlock.Block.LastCommit.BlockID.Hash,
+		resultBlock.Block.LastCommit.BlockID.PartSetHeader.Total,
+		resultBlock.Block.LastCommit.BlockID.PartSetHeader.Hash)
 
 	// Insert transactions if they exist
 	for _, tx := range resultBlock.Block.Data.Txs {
@@ -189,6 +201,8 @@ func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, er
 
 func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	resultBlock := ctypes.ResultBlock{}
+	lastCommit := types.Commit{}
+
 	b := new(types.Block)
 	row := c.Connection.QueryRow("SELECT "+
 		"block_header_height, "+
@@ -207,7 +221,12 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		"block_header_proposer_address, "+
 		"block_header_last_block_id_hash, "+
 		"block_header_last_block_id_part_total, "+
-		"block_header_last_block_id_parts_hash "+
+		"block_header_last_block_id_parts_hash, "+
+		"block_last_commit_height, "+
+		"block_last_commit_round, "+
+		"block_last_commit_block_id_hash, "+
+		"block_last_commit_block_id_parts_total, "+
+		"block_last_commit_block_id_parts_hash "+
 		"FROM comet.result_block WHERE block_header_height=$1", height)
 	err := row.Scan(
 		&b.Header.Height,
@@ -226,10 +245,16 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		&b.Header.ProposerAddress,
 		&b.LastBlockID.Hash,
 		&b.LastBlockID.PartSetHeader.Total,
-		&b.LastBlockID.PartSetHeader.Hash)
+		&b.LastBlockID.PartSetHeader.Hash,
+		&lastCommit.Height, // *Commit
+		&lastCommit.Round,
+		&lastCommit.BlockID.Hash,
+		&lastCommit.BlockID.PartSetHeader.Total,
+		&lastCommit.BlockID.PartSetHeader.Hash)
 	if err != nil {
 		return resultBlock, err
 	}
+	b.LastCommit = &lastCommit
 	resultBlock.Block = b
 
 	// Retrieve transactions if any
