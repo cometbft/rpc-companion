@@ -162,8 +162,16 @@ func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, er
 func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	resultBlock := ctypes.ResultBlock{}
 	b := new(types.Block)
-	row := c.Connection.QueryRow("SELECT block_header_height, block_header_chain_id, block_header_block_time, block_data_hash, block_last_block_id_hash, block_last_block_id_part_total, block_last_block_id_parts_hash FROM comet.result_block WHERE block_header_height=$1", height)
-	err := row.Scan(&b.Header.Height, &b.Header.ChainID, &b.Header.Time, &b.DataHash, &b.LastBlockID.Hash, &b.LastBlockID.PartSetHeader.Total, &b.LastBlockID.PartSetHeader.Hash)
+	row := c.Connection.QueryRow("SELECT block_header_height, block_header_chain_id, block_header_block_time, block_header_version_block, block_header_version_app, block_data_hash, block_last_block_id_hash, block_last_block_id_part_total, block_last_block_id_parts_hash FROM comet.result_block WHERE block_header_height=$1", height)
+	err := row.Scan(&b.Header.Height,
+		&b.Header.ChainID,
+		&b.Header.Time,
+		&b.Header.Version.Block,
+		&b.Header.Version.App,
+		&b.DataHash,
+		&b.LastBlockID.Hash,
+		&b.LastBlockID.PartSetHeader.Total,
+		&b.LastBlockID.PartSetHeader.Hash)
 	if err != nil {
 		return resultBlock, err
 	}
