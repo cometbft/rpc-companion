@@ -138,7 +138,7 @@ func (c *CometFetcher) FetchABCIInfo() (*ctypes.ResultABCIInfo, error) {
 
 func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, error) {
 	_, err := c.Connection.Exec(
-		"INSERT INTO comet.result_block "+
+		"INSERT INTO comet.result_block"+
 			"(block_id_hash, "+
 			"block_id_parts_hash, "+
 			"block_id_parts_total, "+
@@ -199,6 +199,14 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 		}
 	}
 
+	// Insert last commit signatures
+	for _, signature := range resultBlock.Block.LastCommit.Signatures {
+		_, err := c.InsertSignature(resultBlock.Block.LastCommit.Height, signature)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	if err != nil {
 		return false, err
 	} else {
@@ -210,6 +218,20 @@ func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, er
 	_, err := c.Connection.Exec("INSERT INTO comet.block_data (height, transaction) values ($1,$2)",
 		height,
 		tx)
+	if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
+func (c *PostgresStorage) InsertSignature(height int64, signature types.CommitSig) (bool, error) {
+	_, err := c.Connection.Exec("INSERT INTO comet.last_commit_signature (height, block_id_flag, validator_address, signature_timestamp, signature) values ($1,$2,$3,$4,$5)",
+		height,
+		signature.BlockIDFlag,
+		signature.ValidatorAddress,
+		signature.Timestamp,
+		signature.Signature)
 	if err != nil {
 		return false, err
 	} else {
@@ -296,6 +318,22 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 			return resultBlock, err
 		} else {
 			resultBlock.Block.Data.Txs = append(resultBlock.Block.Data.Txs, txBytes)
+		}
+	}
+
+	// Retrieve commit signatures
+	var signature types.CommitSig
+	signatures, err := c.Connection.Query("SELECT block_id_flag, validator_address, signature_timestamp, signature FROM comet.last_commit_signature WHERE height=$1", height-1)
+	if err != nil {
+		return resultBlock, err
+	}
+	defer signatures.Close()
+	for signatures.Next() {
+		err := signatures.Scan(&signature.BlockIDFlag, &signature.ValidatorAddress, &signature.Timestamp, &signature.Signature)
+		if err != nil {
+			return resultBlock, err
+		} else {
+			resultBlock.Block.LastCommit.Signatures = append(resultBlock.Block.LastCommit.Signatures, signature)
 		}
 	}
 
