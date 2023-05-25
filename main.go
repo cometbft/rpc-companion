@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -24,7 +25,8 @@ type Storage interface {
 }
 
 type Fetcher interface {
-	Fetch(endpoint string) ([]byte, error)
+	FetchBlock(height int64) (*ctypes.ResultBlock, error)
+	FetchABCIInfo() (*ctypes.ResultABCIInfo, error)
 }
 
 type Service interface {
@@ -91,6 +93,7 @@ func handleBlock(writer http.ResponseWriter, request *http.Request) {
 		fmt.Printf("Block Request. Height: %v\n", height)
 		block, err := storage.GetBlock(height)
 		if err != nil {
+			// TODO: If not records retrieved return a different status
 			log.Println("Error retrieving record from storage in handleBlock: ", err)
 			writer.WriteHeader(http.StatusInternalServerError)
 			writer.Write([]byte("Internal Server Error"))
@@ -105,7 +108,7 @@ func handleBlock(writer http.ResponseWriter, request *http.Request) {
 
 func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 
-	httpClient, err := client.New("http://localhost:26657", "/websocket")
+	httpClient, err := client.New(c.Endpoint, "/websocket")
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +118,21 @@ func (c *CometFetcher) FetchBlock(height int64) (*ctypes.ResultBlock, error) {
 		return nil, err
 	} else {
 		return resultBlock, nil
+	}
+}
+
+func (c *CometFetcher) FetchABCIInfo() (*ctypes.ResultABCIInfo, error) {
+
+	httpClient, err := client.New(c.Endpoint, "/websocket")
+	if err != nil {
+		return nil, err
+	}
+
+	abciInfo, err := httpClient.ABCIInfo(context.Background())
+	if err != nil {
+		return nil, err
+	} else {
+		return abciInfo, nil
 	}
 }
 
@@ -341,10 +359,18 @@ func InsertBlocks(storage PostgresStorage) {
 
 	// Ingest server
 	fetcher := CometFetcher{
-		Endpoint: "http://localhost:26657",
+		Endpoint: os.Getenv("COMPANION_NODE_RPC"),
 	}
 
-	for height := 88050; height <= 88100; height++ {
+	abciInfo, err := fetcher.FetchABCIInfo()
+	if err != nil {
+		log.Fatalf("Error fetching ABCI information: %s\n", err)
+	}
+
+	numberHeights := 10
+	initialHeight := abciInfo.Response.LastBlockHeight - int64(numberHeights)
+
+	for height := initialHeight; height <= abciInfo.Response.LastBlockHeight; height++ {
 
 		blockFetched, err := fetcher.FetchBlock(int64(height))
 		if err != nil {
