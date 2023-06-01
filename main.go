@@ -163,8 +163,8 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 			"block_last_commit_round, "+
 			"block_last_commit_block_id_hash, "+
 			"block_last_commit_block_id_parts_total, "+
-			"block_last_commit_block_id_parts_hash)"+
-			"values ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
+			"block_last_commit_block_id_parts_hash) "+
+			"VALUES ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
 		resultBlock.BlockID.Hash,
 		resultBlock.BlockID.PartSetHeader.Hash,
 		resultBlock.BlockID.PartSetHeader.Total,
@@ -207,6 +207,23 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 		}
 	}
 
+	// Insert evidences
+	for _, evidence := range resultBlock.Block.Evidence.Evidence {
+		switch ev := evidence.(type) {
+		case *types.DuplicateVoteEvidence:
+			var dve *types.DuplicateVoteEvidence
+			dve = ev
+			_, err = c.InsertDuplicateVoteEvidence(resultBlock.Block.Header.Height, dve)
+			if err != nil {
+				return false, err
+			}
+		case *types.LightClientAttackEvidence:
+			fmt.Printf("Light Client Attack")
+		default:
+			fmt.Printf("Evidence not supported")
+		}
+	}
+
 	if err != nil {
 		return false, err
 	} else {
@@ -218,6 +235,69 @@ func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, er
 	_, err := c.Connection.Exec("INSERT INTO comet.block_data (height, transaction) values ($1,$2)",
 		height,
 		tx)
+	if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
+func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, dve *types.DuplicateVoteEvidence) (bool, error) {
+
+	//TODO: Find how to get the evidence type property e.g. 'tendermint/DuplicateVoteEvidence'
+
+	_, err := c.Connection.Exec("INSERT INTO comet.duplicate_vote_evidence ("+
+		"height, "+
+		"evidence_type, "+
+		"vote_a_type, "+
+		"vote_a_height, "+
+		"vote_a_round, "+
+		"vote_a_block_id_hash, "+
+		"vote_a_block_id_parts_hash, "+
+		"vote_a_block_id_parts_total, "+
+		"vote_a_timestamp, "+
+		"vote_a_validator_address, "+
+		"vote_a_validator_index, "+
+		"vote_a_signature, "+
+		"vote_b_type, "+
+		"vote_b_height, "+
+		"vote_b_round, "+
+		"vote_b_block_id_hash, "+
+		"vote_b_block_id_parts_hash, "+
+		"vote_b_block_id_parts_total, "+
+		"vote_b_timestamp, "+
+		"vote_b_validator_address, "+
+		"vote_b_validator_index, "+
+		"vote_b_signature, "+
+		"total_voting_power, "+
+		"validator_voting_power, "+
+		"evidence_timestamp) "+
+		"VALUES ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
+		height,
+		"tendermint/DuplicateVoteEvidence",
+		dve.VoteA.Type,
+		dve.VoteA.Height,
+		dve.VoteA.Round,
+		dve.VoteA.BlockID.Hash,
+		dve.VoteA.BlockID.PartSetHeader.Hash,
+		dve.VoteA.BlockID.PartSetHeader.Total,
+		dve.VoteA.Timestamp,
+		dve.VoteA.ValidatorAddress,
+		dve.VoteA.ValidatorIndex,
+		dve.VoteA.Signature,
+		dve.VoteB.Type,
+		dve.VoteB.Height,
+		dve.VoteB.Round,
+		dve.VoteB.BlockID.Hash,
+		dve.VoteB.BlockID.PartSetHeader.Hash,
+		dve.VoteB.BlockID.PartSetHeader.Total,
+		dve.VoteB.Timestamp,
+		dve.VoteB.ValidatorAddress,
+		dve.VoteB.ValidatorIndex,
+		dve.VoteB.Signature,
+		dve.TotalVotingPower,
+		dve.ValidatorPower,
+		dve.Timestamp)
 	if err != nil {
 		return false, err
 	} else {
@@ -400,15 +480,14 @@ func InsertBlocks(storage PostgresStorage) {
 		Endpoint: os.Getenv("COMPANION_NODE_RPC"),
 	}
 
-	abciInfo, err := fetcher.FetchABCIInfo()
+	numberHeights := int64(3)
+	initialHeightParameter := os.Getenv("COMPANION_INITIAL_HEIGHT")
+	initialHeight, err := strconv.ParseInt(initialHeightParameter, 10, 64)
 	if err != nil {
-		log.Fatalf("Error fetching ABCI information: %s\n", err)
+		fmt.Printf("Invalid initial height %s: %s\n", initialHeightParameter, err)
 	}
 
-	numberHeights := 10
-	initialHeight := abciInfo.Response.LastBlockHeight - int64(numberHeights)
-
-	for height := initialHeight; height <= abciInfo.Response.LastBlockHeight; height++ {
+	for height := initialHeight; height <= initialHeight+numberHeights; height++ {
 
 		blockFetched, err := fetcher.FetchBlock(int64(height))
 		if err != nil {

@@ -15,8 +15,6 @@ CREATE TABLE IF NOT EXISTS comet.duplicate_vote_evidence
     vote_a_validator_address bytea NOT NULL,
     vote_a_validator_index int NOT NULL,
     vote_a_signature bytea NOT NULL,
-    vote_a_extension bytea NOT NULL,
-    vote_a_extension_signature bytea NOT NULL,
 
     vote_b_type int NOT NULL,
     vote_b_height bigint NOT NULL,
@@ -28,8 +26,6 @@ CREATE TABLE IF NOT EXISTS comet.duplicate_vote_evidence
     vote_b_validator_address bytea NOT NULL,
     vote_b_validator_index int NOT NULL,
     vote_b_signature bytea NOT NULL,
-    vote_b_extension bytea NOT NULL,
-    vote_b_extension_signature bytea NOT NULL,
 
     total_voting_power bigint NOT NULL,
     validator_voting_power bigint NOT NULL,
