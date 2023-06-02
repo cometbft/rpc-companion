@@ -420,7 +420,29 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	// Retrieve duplicate vote evidences
 	dve := types.DuplicateVoteEvidence{}
 	dves, err := c.Connection.Query("SELECT "+
-		"vote_a_type "+
+		"vote_a_type, "+
+		"vote_a_height, "+
+		"vote_a_round, "+
+		"vote_a_block_id_hash, "+
+		"vote_a_block_id_parts_hash, "+
+		"vote_a_block_id_parts_total, "+
+		"vote_a_timestamp, "+
+		"vote_a_validator_address, "+
+		"vote_a_validator_index, "+
+		"vote_a_signature, "+
+		"vote_b_type, "+
+		"vote_b_height, "+
+		"vote_b_round, "+
+		"vote_b_block_id_hash, "+
+		"vote_b_block_id_parts_hash, "+
+		"vote_b_block_id_parts_total, "+
+		"vote_b_timestamp, "+
+		"vote_b_validator_address, "+
+		"vote_b_validator_index, "+
+		"vote_b_signature, "+
+		"total_voting_power, "+
+		"validator_voting_power, "+
+		"evidence_timestamp "+
 		"FROM comet.duplicate_vote_evidence "+
 		"WHERE height=$1", height)
 	if err != nil {
@@ -429,11 +451,36 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 	defer dves.Close()
 	for dves.Next() {
 		voteA := types.Vote{}
-		err := dves.Scan(&voteA.Type)
+		voteB := types.Vote{}
+		err := dves.Scan(
+			&voteA.Type,
+			&voteA.Height,
+			&voteA.Round,
+			&voteA.BlockID.Hash,
+			&voteA.BlockID.PartSetHeader.Hash,
+			&voteA.BlockID.PartSetHeader.Total,
+			&voteA.Timestamp,
+			&voteA.ValidatorAddress,
+			&voteA.ValidatorIndex,
+			&voteA.Signature,
+			&voteB.Type,
+			&voteB.Height,
+			&voteB.Round,
+			&voteB.BlockID.Hash,
+			&voteB.BlockID.PartSetHeader.Hash,
+			&voteB.BlockID.PartSetHeader.Total,
+			&voteB.Timestamp,
+			&voteB.ValidatorAddress,
+			&voteB.ValidatorIndex,
+			&voteB.Signature,
+			&dve.TotalVotingPower,
+			&dve.ValidatorPower,
+			&dve.Timestamp)
 		if err != nil {
 			return resultBlock, err
 		} else {
 			dve.VoteA = &voteA
+			dve.VoteB = &voteB
 			resultBlock.Block.Evidence.Evidence = append(resultBlock.Block.Evidence.Evidence, &dve)
 		}
 	}
