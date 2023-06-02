@@ -417,6 +417,27 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		}
 	}
 
+	// Retrieve duplicate vote evidences
+	dve := types.DuplicateVoteEvidence{}
+	dves, err := c.Connection.Query("SELECT "+
+		"vote_a_type "+
+		"FROM comet.duplicate_vote_evidence "+
+		"WHERE height=$1", height)
+	if err != nil {
+		return resultBlock, err
+	}
+	defer dves.Close()
+	for dves.Next() {
+		voteA := types.Vote{}
+		err := dves.Scan(&voteA.Type)
+		if err != nil {
+			return resultBlock, err
+		} else {
+			dve.VoteA = &voteA
+			resultBlock.Block.Evidence.Evidence = append(resultBlock.Block.Evidence.Evidence, &dve)
+		}
+	}
+
 	return resultBlock, err
 }
 
