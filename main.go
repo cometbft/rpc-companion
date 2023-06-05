@@ -548,7 +548,7 @@ func InsertBlocks(storage PostgresStorage) {
 		Endpoint: os.Getenv("COMPANION_NODE_RPC"),
 	}
 
-	numberHeights := int64(3)
+	numberHeights := int64(5)
 	initialHeightParameter := os.Getenv("COMPANION_INITIAL_HEIGHT")
 	initialHeight, err := strconv.ParseInt(initialHeightParameter, 10, 64)
 	if err != nil {
