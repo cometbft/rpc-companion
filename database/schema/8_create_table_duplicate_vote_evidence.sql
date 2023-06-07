@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS comet.duplicate_vote_evidence
     total_voting_power bigint NOT NULL,
     validator_voting_power bigint NOT NULL,
     evidence_timestamp timestamp with time zone NOT NULL,
-    CONSTRAINT evidence_height_fk FOREIGN KEY (height)
+    CONSTRAINT dv_evidence_height_fk FOREIGN KEY (height)
         REFERENCES comet.result_block (block_header_height) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
