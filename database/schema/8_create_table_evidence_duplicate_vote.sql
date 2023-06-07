@@ -1,6 +1,7 @@
--- Table: comet.duplicate_vote_evidence
+-- Table: comet.evidence_duplicate_vote
 
-CREATE TABLE IF NOT EXISTS comet.duplicate_vote_evidence
+DROP TABLE IF EXISTS comet.evidence_duplicate_vote;
+CREATE TABLE comet.evidence_duplicate_vote
 (
     height bigint NOT NULL,
     evidence_type bytea NOT NULL,
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS comet.duplicate_vote_evidence
     validator_voting_power bigint NOT NULL,
     evidence_timestamp timestamp with time zone NOT NULL,
     CONSTRAINT dv_evidence_height_fk FOREIGN KEY (height)
-        REFERENCES comet.result_block (block_header_height) MATCH SIMPLE
+        REFERENCES comet.block_result (block_header_height) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
 ) TABLESPACE pg_default;

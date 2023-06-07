@@ -138,7 +138,7 @@ func (c *CometFetcher) FetchABCIInfo() (*ctypes.ResultABCIInfo, error) {
 
 func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, error) {
 	_, err := c.Connection.Exec(
-		"INSERT INTO comet.result_block"+
+		"INSERT INTO comet.block_result"+
 			"(block_id_hash, "+
 			"block_id_parts_hash, "+
 			"block_id_parts_total, "+
@@ -201,7 +201,7 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 
 	// Insert last commit signatures
 	for _, signature := range resultBlock.Block.LastCommit.Signatures {
-		_, err := c.InsertSignature(resultBlock.Block.LastCommit.Height, signature)
+		_, err := c.InsertCommitSignature(resultBlock.Block.LastCommit.Height, signature)
 		if err != nil {
 			return false, err
 		}
@@ -251,7 +251,7 @@ func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, evidence *ty
 
 	//TODO: Find how to get the evidence type property e.g. 'tendermint/DuplicateVoteEvidence'
 
-	_, err := c.Connection.Exec("INSERT INTO comet.duplicate_vote_evidence ("+
+	_, err := c.Connection.Exec("INSERT INTO comet.evidence_duplicate_vote ("+
 		"height, "+
 		"evidence_type, "+
 		"vote_a_type, "+
@@ -313,12 +313,12 @@ func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, evidence *ty
 func (c *PostgresStorage) InsertLightClientAttackEvidence(height int64, evidence *types.LightClientAttackEvidence) (bool, error) {
 
 	//TODO: Find how to get the evidence type property e.g. 'tendermint/LightClientAttackEvidence'
-	_, err := c.Connection.Exec("INSERT INTO comet.light_client_attack_evidence ("+
+	_, err := c.Connection.Exec("INSERT INTO comet.evidence_light_client_attack ("+
 		"height, "+
 		"evidence_type, "+
 		"common_height, "+
 		"total_voting_power, "+
-		"evidence_timestamp) "+
+		"timestamp) "+
 		"VALUES ($1,$2,$3, $4, $5)",
 		height,
 		"tendermint/LightClientAttackEvidence",
@@ -332,13 +332,13 @@ func (c *PostgresStorage) InsertLightClientAttackEvidence(height int64, evidence
 	}
 }
 
-func (c *PostgresStorage) InsertSignature(height int64, signature types.CommitSig) (bool, error) {
-	_, err := c.Connection.Exec("INSERT INTO comet.last_commit_signature (height, block_id_flag, validator_address, signature_timestamp, signature) values ($1,$2,$3,$4,$5)",
+func (c *PostgresStorage) InsertCommitSignature(height int64, commitSig types.CommitSig) (bool, error) {
+	_, err := c.Connection.Exec("INSERT INTO comet.block_commit_sig (height, block_id_flag, validator_address, timestamp, signature) values ($1,$2,$3,$4,$5)",
 		height,
-		signature.BlockIDFlag,
-		signature.ValidatorAddress,
-		signature.Timestamp,
-		signature.Signature)
+		commitSig.BlockIDFlag,
+		commitSig.ValidatorAddress,
+		commitSig.Timestamp,
+		commitSig.Signature)
 	if err != nil {
 		return false, err
 	} else {
@@ -378,7 +378,7 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		"block_last_commit_block_id_hash, "+
 		"block_last_commit_block_id_parts_total, "+
 		"block_last_commit_block_id_parts_hash "+
-		"FROM comet.result_block WHERE block_header_height=$1", height)
+		"FROM comet.block_result WHERE block_header_height=$1", height)
 	err := row.Scan(
 		&bId.Hash,
 		&bId.PartSetHeader.Hash,
@@ -430,7 +430,7 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 
 	// Retrieve commit signatures
 	var signature types.CommitSig
-	signatures, err := c.Connection.Query("SELECT block_id_flag, validator_address, signature_timestamp, signature FROM comet.last_commit_signature WHERE height=$1", height-1)
+	signatures, err := c.Connection.Query("SELECT block_id_flag, validator_address, timestamp, signature FROM comet.block_commit_sig WHERE height=$1", resultBlock.Block.LastCommit.Height)
 	if err != nil {
 		return resultBlock, err
 	}
@@ -470,7 +470,7 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		"total_voting_power, "+
 		"validator_voting_power, "+
 		"evidence_timestamp "+
-		"FROM comet.duplicate_vote_evidence "+
+		"FROM comet.evidence_duplicate_vote "+
 		"WHERE height=$1", height)
 	if err != nil {
 		return resultBlock, err

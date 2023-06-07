@@ -1,6 +1,7 @@
--- Table: comet.result_block
+-- Table: comet.block_result
 
-CREATE TABLE IF NOT EXISTS comet.result_block
+DROP TABLE IF EXISTS comet.block_result CASCADE;
+CREATE TABLE comet.block_result
 (
     block_id_hash bytea NOT NULL,
     block_id_parts_hash bytea NOT NULL,
