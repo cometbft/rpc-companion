@@ -512,6 +512,30 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		}
 	}
 
+	// Retrieve light client attack evidences
+	lcaev := types.LightClientAttackEvidence{}
+	lcaevs, err := c.Connection.Query("SELECT "+
+		"common_height, "+
+		"total_voting_power, "+
+		"timestamp "+
+		"FROM comet.evidence_light_client_attack "+
+		"WHERE height=$1", height)
+	if err != nil {
+		return resultBlock, err
+	}
+	defer lcaevs.Close()
+	for lcaevs.Next() {
+		err := lcaevs.Scan(
+			&lcaev.CommonHeight,
+			&lcaev.TotalVotingPower,
+			&lcaev.Timestamp)
+		if err != nil {
+			return resultBlock, err
+		} else {
+			resultBlock.Block.Evidence.Evidence = append(resultBlock.Block.Evidence.Evidence, &lcaev)
+		}
+	}
+
 	return resultBlock, err
 }
 
