@@ -218,9 +218,14 @@ func (c *PostgresStorage) InsertBlock(resultBlock ctypes.ResultBlock) (bool, err
 				return false, err
 			}
 		case *types.LightClientAttackEvidence:
-			fmt.Printf("Light Client Attack")
+			var lae *types.LightClientAttackEvidence
+			lae = ev
+			_, err = c.InsertLightClientAttackEvidence(resultBlock.Block.Header.Height, lae)
+			if err != nil {
+				return false, err
+			}
 		default:
-			fmt.Printf("Evidence not supported")
+			fmt.Printf("Evidence type not supported")
 		}
 	}
 
@@ -242,7 +247,7 @@ func (c *PostgresStorage) InsertTransaction(height int64, tx types.Tx) (bool, er
 	}
 }
 
-func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, dve *types.DuplicateVoteEvidence) (bool, error) {
+func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, evidence *types.DuplicateVoteEvidence) (bool, error) {
 
 	//TODO: Find how to get the evidence type property e.g. 'tendermint/DuplicateVoteEvidence'
 
@@ -275,29 +280,51 @@ func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, dve *types.D
 		"VALUES ($1,$2,$3,$4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)",
 		height,
 		"tendermint/DuplicateVoteEvidence",
-		dve.VoteA.Type,
-		dve.VoteA.Height,
-		dve.VoteA.Round,
-		dve.VoteA.BlockID.Hash,
-		dve.VoteA.BlockID.PartSetHeader.Hash,
-		dve.VoteA.BlockID.PartSetHeader.Total,
-		dve.VoteA.Timestamp,
-		dve.VoteA.ValidatorAddress,
-		dve.VoteA.ValidatorIndex,
-		dve.VoteA.Signature,
-		dve.VoteB.Type,
-		dve.VoteB.Height,
-		dve.VoteB.Round,
-		dve.VoteB.BlockID.Hash,
-		dve.VoteB.BlockID.PartSetHeader.Hash,
-		dve.VoteB.BlockID.PartSetHeader.Total,
-		dve.VoteB.Timestamp,
-		dve.VoteB.ValidatorAddress,
-		dve.VoteB.ValidatorIndex,
-		dve.VoteB.Signature,
-		dve.TotalVotingPower,
-		dve.ValidatorPower,
-		dve.Timestamp)
+		evidence.VoteA.Type,
+		evidence.VoteA.Height,
+		evidence.VoteA.Round,
+		evidence.VoteA.BlockID.Hash,
+		evidence.VoteA.BlockID.PartSetHeader.Hash,
+		evidence.VoteA.BlockID.PartSetHeader.Total,
+		evidence.VoteA.Timestamp,
+		evidence.VoteA.ValidatorAddress,
+		evidence.VoteA.ValidatorIndex,
+		evidence.VoteA.Signature,
+		evidence.VoteB.Type,
+		evidence.VoteB.Height,
+		evidence.VoteB.Round,
+		evidence.VoteB.BlockID.Hash,
+		evidence.VoteB.BlockID.PartSetHeader.Hash,
+		evidence.VoteB.BlockID.PartSetHeader.Total,
+		evidence.VoteB.Timestamp,
+		evidence.VoteB.ValidatorAddress,
+		evidence.VoteB.ValidatorIndex,
+		evidence.VoteB.Signature,
+		evidence.TotalVotingPower,
+		evidence.ValidatorPower,
+		evidence.Timestamp)
+	if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
+func (c *PostgresStorage) InsertLightClientAttackEvidence(height int64, evidence *types.LightClientAttackEvidence) (bool, error) {
+
+	//TODO: Find how to get the evidence type property e.g. 'tendermint/LightClientAttackEvidence'
+	_, err := c.Connection.Exec("INSERT INTO comet.light_client_attack_evidence ("+
+		"height, "+
+		"evidence_type, "+
+		"common_height, "+
+		"total_voting_power, "+
+		"evidence_timestamp) "+
+		"VALUES ($1,$2,$3, $4, $5)",
+		height,
+		"tendermint/LightClientAttackEvidence",
+		evidence.CommonHeight,
+		evidence.TotalVotingPower,
+		evidence.Timestamp)
 	if err != nil {
 		return false, err
 	} else {
