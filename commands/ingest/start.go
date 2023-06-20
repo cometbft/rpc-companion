@@ -9,6 +9,7 @@ import (
 	"strconv"
 )
 
+// TODO: make this configurable via a config or parameter
 const connString = "postgres://postgres:postgres@0.0.0.0:15432/postgres?sslmode=disable"
 
 // StartCmd start ingest service

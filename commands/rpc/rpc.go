@@ -15,4 +15,5 @@ var RpcCmd = &cobra.Command{
 }
 
 func init() {
+	RpcCmd.AddCommand(StartCmd)
 }
