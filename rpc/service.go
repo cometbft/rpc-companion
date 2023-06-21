@@ -1,8 +1,8 @@
 package rpc
 
 import (
-	"encoding/json"
 	"fmt"
+	cmtjson "github.com/cometbft/cometbft/libs/json"
 	"github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	"github.com/cometbft/rpc-companion/storage"
 	"log"
@@ -67,20 +67,20 @@ func (s *Service) handleBlock(writer http.ResponseWriter, request *http.Request)
 				writer.Write([]byte("Internal Server Error"))
 			}
 			// Return response
-			blockJSON, err := json.Marshal(block)
-			id := types.JSONRPCStringID("id")
+			//TODO: Empty objects return 'null' should return '[]'
+			blockJSON, err := cmtjson.Marshal(block)
 			if err != nil {
 				log.Println("Error marshalling block: ", err)
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte("Internal Server Error"))
 			} else {
-				RPCResponse := types.RPCResponse{
+				var RPCResponse = types.RPCResponse{
 					JSONRPC: "2.0",
-					ID:      id,
+					ID:      nil, //TODO: Figure out a way to properly return this avoiding error 'cannot encode unregistered type types.JSONRPCIntID'
 					Result:  blockJSON,
 					Error:   nil,
 				}
-				resp, err := json.Marshal(RPCResponse)
+				resp, err := cmtjson.Marshal(RPCResponse)
 				if err != nil {
 					log.Println("Error marshalling RPCResponse: ", err)
 					writer.WriteHeader(http.StatusInternalServerError)
