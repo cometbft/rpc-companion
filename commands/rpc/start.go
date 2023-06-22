@@ -3,7 +3,6 @@ package rpc
 import (
 	"github.com/cometbft/rpc-companion/rpc"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 // TODO: make this configurable via a config or parameter
@@ -18,13 +17,9 @@ var StartCmd = &cobra.Command{
 
 		//Instantiate a new Ingest Service
 		rpcSvc := rpc.NewService(connString)
-		err := rpcSvc.Serve()
-		if err != nil {
-			log.Fatalln("There's an error starting the RPC service:", err)
-		} else {
-			log.Println("Started RPC service...")
-		}
 
+		//Start the service
+		rpcSvc.Serve()
 	},
 }
 

@@ -27,18 +27,13 @@ func NewService(connStr string) Service {
 	}
 }
 
-func (s *Service) Serve() error {
+func (s *Service) Serve() {
 
 	// Handler for the block endpoint
 	http.HandleFunc("/v1/block", s.handleBlock)
 
 	// Start the service
-	err := http.ListenAndServe(":8080", nil) // TODO: Make the port configurable
-	if err != nil {
-		return err
-	} else {
-		return nil
-	}
+	log.Fatalln(http.ListenAndServe(":8080", nil)) // TODO: Make the port configurable
 }
 
 // Handles the '/v1/block' endpoint

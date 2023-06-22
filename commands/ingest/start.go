@@ -23,7 +23,7 @@ var StartCmd = &cobra.Command{
 		ingestSvc := ingest.NewService(connString)
 
 		//Insert some blocks
-		numberHeights := int64(5)
+		numberHeights := int64(10)
 		initialHeightParameter := os.Getenv("COMPANION_INITIAL_HEIGHT")
 		initialHeight, err := strconv.ParseInt(initialHeightParameter, 10, 64)
 		if err != nil {
