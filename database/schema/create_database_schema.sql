@@ -170,3 +170,17 @@ CREATE TABLE comet.evidence_light_client_attack
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+DROP TABLE IF EXISTS comet.validator;
+
+CREATE TABLE comet.validator
+(
+    id bigserial NOT NULL,
+    address bytea NOT NULL,
+    pub_key_type bytea NOT NULL,
+    pub_key_value bytea NOT NULL,
+    voting_power bigint NOT NULL,
+    proposer_priority bigint NOT NULL,
+    CONSTRAINT validator_pkey PRIMARY KEY (id),
+    CONSTRAINT unique_validator UNIQUE (pub_key_type, pub_key_value, voting_power)
+);
