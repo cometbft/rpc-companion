@@ -43,8 +43,8 @@ DO $$ BEGIN
 
     ALTER DOMAIN comet.uint64
         ADD CONSTRAINT value_positive CHECK (VALUE >= 0::numeric);
-    EXCEPTION
-        WHEN duplicate_object THEN null;
+EXCEPTION
+    WHEN duplicate_object THEN null;
 END $$;
 
 -- TABLE: comet.block_result
@@ -156,22 +156,26 @@ CREATE TABLE comet.evidence_duplicate_vote
 
 -- TABLE: comet.evidence_light_client_attack
 
-DROP TABLE IF EXISTS comet.evidence_light_client_attack;
+DROP TABLE IF EXISTS comet.evidence_light_client_attack CASCADE;
 
 CREATE TABLE comet.evidence_light_client_attack
 (
+    id bigserial NOT NULL,
     height bigint NOT NULL,
     evidence_type bytea NOT NULL,
     common_height bigint NOT NULL,
     total_voting_power bigint NOT NULL,
     timestamp timestamp with time zone NOT NULL,
+    CONSTRAINT evidence_light_client_attack_pkey PRIMARY KEY (id),
     CONSTRAINT lca_evidence_height_fk FOREIGN KEY (height)
         REFERENCES comet.block_result (block_header_height) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
 
-DROP TABLE IF EXISTS comet.validator;
+-- TABLE: comet.validator
+
+DROP TABLE IF EXISTS comet.validator CASCADE;
 
 CREATE TABLE comet.validator
 (
@@ -183,4 +187,23 @@ CREATE TABLE comet.validator
     proposer_priority bigint NOT NULL,
     CONSTRAINT validator_pkey PRIMARY KEY (id),
     CONSTRAINT unique_validator UNIQUE (pub_key_type, pub_key_value, voting_power)
+);
+
+-- TABLE: comet.evidence_light_client_attack_byzantine_validator
+
+DROP TABLE IF EXISTS comet.evidence_light_client_attack_byzantine_validator;
+
+CREATE TABLE comet.evidence_light_client_attack_byzantine_validator
+(
+    evidence_id bigint NOT NULL,
+    validator_id bigint NOT NULL,
+    CONSTRAINT evidence_light_client_attack_byzantine_validator_pkey PRIMARY KEY (evidence_id, validator_id),
+    CONSTRAINT ev_lca_byzantine_validator_fk FOREIGN KEY (validator_id)
+        REFERENCES comet.validator (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT ev_lca_fk FOREIGN KEY (evidence_id)
+        REFERENCES comet.evidence_light_client_attack (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
 );

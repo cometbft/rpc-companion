@@ -239,28 +239,74 @@ func (c *PostgresStorage) InsertDuplicateVoteEvidence(height int64, evidence *ty
 }
 
 func (c *PostgresStorage) InsertLightClientAttackEvidence(height int64, evidence *types.LightClientAttackEvidence) (bool, error) {
+	evID := int64(0)
 	conn, err := c.Connect()
 	defer conn.Close()
 	if err != nil {
 		return false, err
 	} else {
 		//TODO: Find how to get the evidence type property e.g. 'tendermint/LightClientAttackEvidence'
-		_, err := conn.Exec("INSERT INTO comet.evidence_light_client_attack ("+
-			"height, "+
-			"evidence_type, "+
-			"common_height, "+
-			"total_voting_power, "+
-			"timestamp) "+
-			"VALUES ($1,$2,$3, $4, $5)",
+		err := conn.QueryRow("INSERT INTO comet.evidence_light_client_attack (height, evidence_type, common_height, total_voting_power, timestamp) VALUES ($1,$2,$3, $4, $5) RETURNING id",
 			height,
 			"tendermint/LightClientAttackEvidence",
 			evidence.CommonHeight,
 			evidence.TotalVotingPower,
-			evidence.Timestamp)
+			evidence.Timestamp).Scan(&evID)
 		if err != nil {
 			return false, err
 		} else {
+			// Insert byzantine validators
+			for _, validator := range evidence.ByzantineValidators {
+				valID, err := c.InsertValidator(validator)
+				if err != nil {
+					return false, err
+				} else {
+					//Insert an entry into a light client evidence to byzantine validator table (1-N)
+					_, err := c.InsertEvidenceLCAByzantineValidator(evID, valID)
+					if err != nil {
+						return false, err
+					}
+				}
+			}
 			return true, nil
+		}
+	}
+}
+
+func (c *PostgresStorage) InsertValidator(v *types.Validator) (int64, error) {
+	id := int64(0)
+	conn, err := c.Connect()
+	defer conn.Close()
+	if err != nil {
+		return id, err
+	} else {
+		err := conn.QueryRow("INSERT INTO comet.validator (address, pub_key_type, pub_key_value, voting_power, proposer_priority) SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS (SELECT address FROM comet.validator WHERE address=$1 AND voting_power=$4) RETURNING id;",
+			v.Address,
+			v.PubKey.Type(),
+			v.PubKey.Bytes(),
+			v.VotingPower,
+			v.ProposerPriority).Scan(&id)
+		if err != nil {
+			return id, err
+		} else {
+			return id, nil
+		}
+	}
+}
+
+func (c *PostgresStorage) InsertEvidenceLCAByzantineValidator(evID int64, valID int64) (sql.Result, error) {
+	conn, err := c.Connect()
+	defer conn.Close()
+	if err != nil {
+		return nil, err
+	} else {
+		r, err := conn.Exec("INSERT INTO comet.evidence_light_client_attack_byzantine_validator(evidence_id, validator_id) VALUES ($1, $2);",
+			evID,
+			valID)
+		if err != nil {
+			return nil, err
+		} else {
+			return r, nil
 		}
 	}
 }
