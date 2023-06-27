@@ -504,6 +504,7 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		// Retrieve light client attack evidences
 		lcaev := types.LightClientAttackEvidence{}
 		lcaevs, err := conn.Query("SELECT "+
+			"id, "+
 			"common_height, "+
 			"total_voting_power, "+
 			"timestamp "+
@@ -514,13 +515,32 @@ func (c *PostgresStorage) GetBlock(height int64) (ctypes.ResultBlock, error) {
 		}
 		defer lcaevs.Close()
 		for lcaevs.Next() {
+			var id int64
 			err := lcaevs.Scan(
+				&id,
 				&lcaev.CommonHeight,
 				&lcaev.TotalVotingPower,
 				&lcaev.Timestamp)
 			if err != nil {
 				return resultBlock, err
 			} else {
+				//Retrieve byzantine validators
+				// Retrieve commit signatures
+				var validator types.Validator
+				bValidators, err := conn.Query("SELECT V.address, v.voting_power, v.proposer_priority FROM comet.evidence_light_client_attack_byzantine_validator E JOIN comet.validator V ON E.validator_id = V.id WHERE E.evidence_id=$1;", id)
+				if err != nil {
+					return resultBlock, err
+				}
+				defer bValidators.Close()
+				for bValidators.Next() {
+					//TODO: Logic to retrieve pub_key
+					err := bValidators.Scan(&validator.Address, &validator.VotingPower, &validator.ProposerPriority)
+					if err != nil {
+						return resultBlock, err
+					} else {
+						lcaev.ByzantineValidators = append(lcaev.ByzantineValidators, &validator)
+					}
+				}
 				resultBlock.Block.Evidence.Evidence = append(resultBlock.Block.Evidence.Evidence, &lcaev)
 			}
 		}
