@@ -1,12 +1,14 @@
 package ingest
 
 import (
+	"github.com/cometbft/rpc-companion/ingest/client"
+	"github.com/cometbft/rpc-companion/ingest/client/http"
 	storage "github.com/cometbft/rpc-companion/storage"
 	"os"
 )
 
 type Service struct {
-	Fetcher Fetcher
+	Client  client.IClient
 	Storage storage.IStorage
 }
 
@@ -17,14 +19,14 @@ func NewService(connStr string) Service {
 		ConnectionString: connStr,
 	}
 
-	// RPC Fetcher
-	fetcher := RPCFetcher{
+	// HTTP IClient
+	client := http.HTTP{
 		Endpoint: os.Getenv("COMPANION_NODE_RPC"),
 	}
 
 	// Return an Ingest Service
 	return Service{
-		Fetcher: &fetcher,
+		Client:  &client,
 		Storage: &db,
 	}
 }
