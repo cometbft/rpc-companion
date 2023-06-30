@@ -2,13 +2,13 @@ package storage
 
 import (
 	"database/sql"
-	"github.com/cometbft/cometbft/proto/tendermint/types"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 type IStorage interface {
 	Connect() (*sql.DB, error)
 	Disconnect(db *sql.DB) error
 	Ping() error
-	InsertHeader(height int64, header types.Header) error
-	//GetHeader(height int64) (types.Header, error)
+	InsertHeader(height int64, header ctypes.ResultHeader) error
+	GetHeader(height int64) (ctypes.ResultHeader, error)
 }

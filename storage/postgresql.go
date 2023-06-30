@@ -3,7 +3,8 @@ package storage
 import (
 	"context"
 	"database/sql"
-	"github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cometbft/cometbft/libs/json"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	_ "github.com/lib/pq"
 	"time"
 )
@@ -46,22 +47,44 @@ func (c *PostgresStorage) Ping() error {
 	}
 }
 
-func (c *PostgresStorage) InsertHeader(height int64, header types.Header) error {
+func (c *PostgresStorage) InsertHeader(height int64, header ctypes.ResultHeader) error {
 	conn, err := c.Connect()
 	defer conn.Close()
 	if err != nil {
 		return err
 	} else {
-		headerBytes, err := header.Marshal()
+		headerBytes, err := json.Marshal(header)
 		if err != nil {
 			return err
 		} else {
-			_, err = conn.Exec("INSERT INTO comet.header (height, header) values ($1,$2)", height, headerBytes)
+			_, err = conn.Exec("INSERT INTO comet.header (height, header) values ($1,$2)", height, &headerBytes)
 			if err != nil {
 				return err
 			} else {
 				return nil
 			}
 		}
+	}
+}
+
+func (c *PostgresStorage) GetHeader(height int64) (ctypes.ResultHeader, error) {
+	var header ctypes.ResultHeader
+	var headerBytes []byte
+	conn, err := c.Connect()
+	defer conn.Close()
+	if err != nil {
+		return header, err
+	} else {
+		row := conn.QueryRow("SELECT header FROM comet.header WHERE height=$1", height)
+		err := row.Scan(
+			&headerBytes)
+		if err != nil {
+			return header, err
+		}
+		err = json.Unmarshal(headerBytes, &header)
+		if err != nil {
+			return header, err
+		}
+		return header, nil
 	}
 }

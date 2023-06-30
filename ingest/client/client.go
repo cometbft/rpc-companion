@@ -1,9 +1,9 @@
 package client
 
 import (
-	"github.com/cometbft/cometbft/proto/tendermint/types"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 type IClient interface {
-	Header(height int64) (*types.Header, error)
+	Header(height int64) (*ctypes.ResultHeader, error)
 }
