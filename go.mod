@@ -3,7 +3,7 @@ module github.com/cometbft/rpc-companion
 go 1.20
 
 require (
-	github.com/cometbft/cometbft v0.37.1
+	github.com/cometbft/cometbft v0.37.2
 	github.com/lib/pq v1.10.9
 	github.com/spf13/cobra v1.6.1
 )
