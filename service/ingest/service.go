@@ -43,12 +43,11 @@ func NewIngestService(
 }
 
 func (s *Service) OnStart() error {
-	s.Logger.Info("Ingest Service starting")
+	s.Start()
 	return nil
 }
 
 func (s *Service) OnStop() {
 	s.BaseService.OnStop()
-	s.Logger.Info("Stopping Node")
 	//TODO: Add stopping logic
 }
