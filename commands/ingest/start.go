@@ -32,17 +32,14 @@ var StartCmd = &cobra.Command{
 
 		for height := initialHeight; height <= initialHeight+numberHeights; height++ {
 
-			blockFetched, err := ingestSvc.Fetcher.FetchBlock(int64(height))
+			header, err := ingestSvc.Client.Header(int64(height))
 			if err != nil {
 				log.Fatalf("Error fetching block at height %d: %s\n", height, err)
 			}
 
-			inserted, err := ingestSvc.Storage.InsertBlock(*blockFetched)
+			err = ingestSvc.Storage.InsertHeader(int64(height), *header)
 			if err != nil {
-				fmt.Printf("Error inserting block at height %d: %s\n", height, err)
-			}
-			if inserted {
-				fmt.Printf("Inserted height %d\n", height)
+				fmt.Printf("error inserting header at height %d: %s\n", height, err)
 			}
 		}
 	},

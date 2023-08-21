@@ -8,7 +8,7 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "rpc-companion",
+	Use:   "http-companion",
 	Short: "RPC Companion - CometBFT",
 	Long:  `RPC Companion is an implementation of a Data Companion for CometBFT based chains`,
 }

@@ -1,8 +1,7 @@
 package rpc
 
 import (
-	"fmt"
-	cmtjson "github.com/cometbft/cometbft/libs/json"
+	"encoding/json"
 	"github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	"github.com/cometbft/rpc-companion/storage"
 	"log"
@@ -30,19 +29,18 @@ func NewService(connStr string) Service {
 func (s *Service) Serve() {
 
 	// Handler for the block endpoint
-	http.HandleFunc("/v1/block", s.handleBlock)
+	http.HandleFunc("/v1/header", s.HeaderHandler)
 
 	// Start the service
 	log.Fatalln(http.ListenAndServe(":8080", nil)) // TODO: Make the port configurable
 }
 
-// Handles the '/v1/block' endpoint
-func (s *Service) handleBlock(writer http.ResponseWriter, request *http.Request) {
+func (s *Service) HeaderHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	conn, err := s.Storage.Connect()
 	defer conn.Close()
 	if err != nil {
-		log.Println("Error connecting to storage in handleBlock: ", err)
+		log.Println("error connecting to storage in HeaderHandler: ", err)
 		writer.WriteHeader(http.StatusInternalServerError)
 		writer.Write([]byte("Internal Server Error"))
 	} else {
@@ -53,38 +51,27 @@ func (s *Service) handleBlock(writer http.ResponseWriter, request *http.Request)
 				writer.WriteHeader(http.StatusBadRequest)
 				writer.Write([]byte("Bad Request. Invalid height"))
 			}
-			fmt.Printf("Block Request. Height: %v\n", height)
-			block, err := s.Storage.GetBlock(height)
+			log.Printf("header request at height: %v\n", height)
+			header, err := s.Storage.GetHeader(height)
 			if err != nil {
 				// TODO: If not records retrieved return a different status
-				log.Println("Error retrieving record from storage in handleBlock: ", err)
+				log.Println("error retrieving header from storage in HeaderHandler: ", err)
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte("Internal Server Error"))
 			}
 			// Return response
-			//TODO: Empty objects return 'null' should return '[]'
-			blockJSON, err := cmtjson.Marshal(block)
+			id := types.JSONRPCStringID("id")
+			resp := types.NewRPCSuccessResponse(id, header)
+			respJson, err := json.Marshal(resp)
 			if err != nil {
-				log.Println("Error marshalling block: ", err)
+				log.Println("Error marshalling header response: ", err)
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte("Internal Server Error"))
 			} else {
-				var RPCResponse = types.RPCResponse{
-					JSONRPC: "2.0",
-					ID:      nil, //TODO: Figure out a way to properly return this avoiding error 'cannot encode unregistered type types.JSONRPCIntID'
-					Result:  blockJSON,
-					Error:   nil,
-				}
-				resp, err := cmtjson.Marshal(RPCResponse)
-				if err != nil {
-					log.Println("Error marshalling RPCResponse: ", err)
-					writer.WriteHeader(http.StatusInternalServerError)
-					writer.Write([]byte("Internal Server Error"))
-				} else {
-					writer.WriteHeader(http.StatusOK)
-					writer.Write(resp)
-				}
+				writer.WriteHeader(http.StatusOK)
+				writer.Write(respJson)
 			}
+
 		} else {
 			writer.WriteHeader(http.StatusBadRequest)
 			writer.Write([]byte("Bad Request"))
