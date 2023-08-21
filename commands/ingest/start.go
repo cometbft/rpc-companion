@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	rpcos "github.com/cometbft/rpc-companion/libs/os"
 	"github.com/cometbft/rpc-companion/service/ingest"
 	"github.com/spf13/cobra"
 	"log/slog"
@@ -23,6 +24,15 @@ var StartCmd = &cobra.Command{
 		if err != nil {
 			service.Logger.Error("Failed to start the Ingest Service: %v", err.Error())
 		}
+
+		// Stop upon receiving SIGTERM or CTRL-C.
+		rpcos.TrapSignal(*logger, func() {
+			// Cleanup
+			if err := service.Stop(); err != nil {
+				logger.Error("Error while stopping server", "err", err)
+			}
+		})
+
 		select {}
 	},
 }
