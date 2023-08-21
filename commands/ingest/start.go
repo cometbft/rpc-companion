@@ -1,12 +1,10 @@
 package ingest
 
 import (
-	"fmt"
-	"github.com/cometbft/rpc-companion/ingest"
+	"github.com/cometbft/rpc-companion/service/ingest"
 	"github.com/spf13/cobra"
-	"log"
+	"log/slog"
 	"os"
-	"strconv"
 )
 
 // TODO: make this configurable via a config or parameter
@@ -18,30 +16,14 @@ var StartCmd = &cobra.Command{
 	Short: "Start Ingest Service",
 	Long:  `The start command runs an instance of the Ingest Service`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		//Instantiate a new Ingest Service
-		ingestSvc := ingest.NewService(connString)
-
-		//Insert some blocks
-		numberHeights := int64(10)
-		initialHeightParameter := os.Getenv("COMPANION_INITIAL_HEIGHT")
-		initialHeight, err := strconv.ParseInt(initialHeightParameter, 10, 64)
+		textHandler := slog.NewTextHandler(os.Stdout, nil)
+		logger := slog.New(textHandler)
+		service := ingest.NewIngestService(*logger)
+		err := service.OnStart()
 		if err != nil {
-			fmt.Printf("Invalid initial height %s: %s\n", initialHeightParameter, err)
+			service.Logger.Error("Failed to start the Ingest Service: %v", err.Error())
 		}
-
-		for height := initialHeight; height <= initialHeight+numberHeights; height++ {
-
-			header, err := ingestSvc.Client.Header(int64(height))
-			if err != nil {
-				log.Fatalf("Error fetching block at height %d: %s\n", height, err)
-			}
-
-			err = ingestSvc.Storage.InsertHeader(int64(height), *header)
-			if err != nil {
-				fmt.Printf("error inserting header at height %d: %s\n", height, err)
-			}
-		}
+		select {}
 	},
 }
 
