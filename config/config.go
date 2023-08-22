@@ -1,20 +1,31 @@
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Config struct {
 	// Options for services
-	Storage *StorageConfig `mapstructure:"storage"`
+	Storage    *StorageConfig    `mapstructure:"storage"`
+	GRPCClient *GRPCClientConfig `mapstructure:"grpc_client"`
 }
 
 // DefaultConfig returns a default configuration for a node
 func DefaultConfig() *Config {
-	return &Config{}
+	return &Config{
+		Storage:    DefaultStorageConfig(),
+		GRPCClient: DefaultGRPCClientConfig(),
+	}
 }
 
-// DefaultStorageConfig returns a default configuration for the Storage layer
-func DefaultStorageConfig() *StorageConfig {
-	return &StorageConfig{
-		Connection: "", //TODO: Add postgres connection
+// ValidateBasic performs basic validation and
+// returns an error if any check fails.
+func (cfg *Config) ValidateBasic() error {
+	if err := cfg.GRPCClient.ValidateBasic(); err != nil {
+		return fmt.Errorf("error in [grpc_client] section: %w", err)
 	}
+	return nil
 }
 
 //-----------------------------------------------------------------------------
@@ -24,4 +35,44 @@ func DefaultStorageConfig() *StorageConfig {
 type StorageConfig struct { //nolint: maligned
 	// Connection credentials
 	Connection string `mapstructure:"connection"`
+}
+
+// DefaultStorageConfig returns a default configuration for the Storage layer
+func DefaultStorageConfig() *StorageConfig {
+	return &StorageConfig{
+		Connection: "",
+	}
+}
+
+//-----------------------------------------------------------------------------
+// StorageConfig
+
+// GRPCClientConfig defines the configuration options for the gRPC client layer
+type GRPCClientConfig struct { //nolint: maligned
+	// GRPC service address
+	ListenAddress string `mapstructure:"address"`
+}
+
+// DefaultGRPCClientConfig returns a default configuration for the gRPC client layer
+func DefaultGRPCClientConfig() *GRPCClientConfig {
+	return &GRPCClientConfig{
+		ListenAddress: "",
+	}
+}
+
+// ValidateBasic performs basic validation for the
+// [grpc_client] config section
+func (cfg *GRPCClientConfig) ValidateBasic() error {
+	if len(cfg.ListenAddress) > 0 {
+		addrParts := strings.SplitN(cfg.ListenAddress, "://", 2)
+		if len(addrParts) != 2 {
+			return fmt.Errorf(
+				"invalid listening address %s (use fully formed addresses, including the tcp:// or unix:// prefix)",
+				cfg.ListenAddress,
+			)
+		}
+	} else {
+		return fmt.Errorf("invalid gRPC client listening address, cannot be blank, please ensure a value is set in the config")
+	}
+	return nil
 }
