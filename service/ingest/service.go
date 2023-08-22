@@ -1,21 +1,23 @@
 package ingest
 
 import (
+	"fmt"
 	"github.com/cometbft/rpc-companion/config"
 	"github.com/cometbft/rpc-companion/service/base"
+	"github.com/cometbft/rpc-companion/service/ingest/fetcher"
 	"log/slog"
 )
 
 type Service struct {
 	service.BaseService
-	config *config.Config
-	//client  client.IClient
+	config  *config.Config
+	fetcher *fetcher.Fetcher
 	//storage storage.IStorage
 }
 
 func NewIngestService(
 	logger slog.Logger,
-) *Service {
+) (*Service, error) {
 
 	cfg := config.DefaultConfig()
 
@@ -24,30 +26,41 @@ func NewIngestService(
 	//	ConnectionString: "",
 	//}
 	//
-	//// HTTP IClient
-	//client := http.HTTP{
-	//	Endpoint: os.Getenv("COMPANION_NODE_RPC"),
-	//}
+
+	// Instantiate new fetcher (gRPC client)
+	fetcher, err := fetcher.NewFetcher(cfg.GRPCClient.ListenAddress, logger)
+	if err != nil {
+		return nil, fmt.Errorf("error creating new fetcher: %v", err)
+	}
+
+	// Configure Fetcher service
+	fetcher.BaseService = *service.NewBaseService(logger, "Fetcher", fetcher)
+	fetcher.SetLogger(*logger.With("service", "fetcher"))
 
 	// Ingest Service
-	svc := &Service{
-		config: cfg,
-		//client:  &client,
+	ingest := &Service{
+		config:  cfg,
+		fetcher: fetcher,
 		//storage: &db,
 	}
 
-	svc.BaseService = *service.NewBaseService(logger, "Ingest", svc)
-	iLogger := svc.Logger.With("service", "ingest")
-	svc.SetLogger(*iLogger)
-	return svc
+	ingest.BaseService = *service.NewBaseService(logger, "Ingest", ingest)
+	ingest.SetLogger(*logger.With("service", "ingest"))
+
+	return ingest, nil
 }
 
 func (s *Service) OnStart() error {
-	s.Start()
+	if s.IsRunning() {
+		s.fetcher.Start()
+	}
 	return nil
 }
 
 func (s *Service) OnStop() {
+	if s.fetcher.IsRunning() {
+		s.fetcher.Stop()
+	}
 	s.BaseService.OnStop()
 	//TODO: Add stopping logic
 }

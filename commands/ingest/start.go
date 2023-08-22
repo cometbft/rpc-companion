@@ -19,10 +19,13 @@ var StartCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		textHandler := slog.NewTextHandler(os.Stdout, nil)
 		logger := slog.New(textHandler)
-		service := ingest.NewIngestService(*logger)
-		err := service.OnStart()
+		service, err := ingest.NewIngestService(*logger)
 		if err != nil {
-			service.Logger.Error("Failed to start the Ingest Service: %v", err.Error())
+			logger.Error("Failed to instantiate a new ingest service: %v", err.Error())
+		}
+		err = service.Start()
+		if err != nil {
+			logger.Error("Failed to start the ingest service: %v", err.Error())
 		}
 
 		// Stop upon receiving SIGTERM or CTRL-C.

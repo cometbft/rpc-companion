@@ -47,13 +47,13 @@ func DefaultStorageConfig() *StorageConfig {
 //-----------------------------------------------------------------------------
 // StorageConfig
 
-// GRPCClientConfig defines the configuration options for the gRPC client layer
+// GRPCClientConfig defines the configuration options for the gRPC fetcher layer
 type GRPCClientConfig struct { //nolint: maligned
 	// GRPC service address
 	ListenAddress string `mapstructure:"address"`
 }
 
-// DefaultGRPCClientConfig returns a default configuration for the gRPC client layer
+// DefaultGRPCClientConfig returns a default configuration for the gRPC fetcher layer
 func DefaultGRPCClientConfig() *GRPCClientConfig {
 	return &GRPCClientConfig{
 		ListenAddress: "",
@@ -72,7 +72,7 @@ func (cfg *GRPCClientConfig) ValidateBasic() error {
 			)
 		}
 	} else {
-		return fmt.Errorf("invalid gRPC client listening address, cannot be blank, please ensure a value is set in the config")
+		return fmt.Errorf("invalid gRPC fetcher listening address, cannot be blank, please ensure a value is set in the config")
 	}
 	return nil
 }
