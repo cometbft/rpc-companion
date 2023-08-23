@@ -61,27 +61,11 @@ type GRPCClientConfig struct { //nolint: maligned
 // ValidateBasic performs basic validation for the
 // [grpc_client] config section
 func (cfg *GRPCClientConfig) ValidateBasic() error {
-	if len(cfg.ListenAddress) > 0 {
-		addrParts := strings.SplitN(cfg.ListenAddress, "://", 2)
-		if len(addrParts) != 2 {
-			return fmt.Errorf(
-				"invalid listening address %s (use fully formed addresses, including the tcp:// or unix:// prefix)",
-				cfg.ListenAddress,
-			)
-		}
-	} else {
+	if len(cfg.ListenAddress) <= 0 {
 		return fmt.Errorf("invalid gRPC fetcher listening address, cannot be blank, please ensure a value is set in the config")
 	}
 
-	if len(cfg.ListenAddressPrivileged) > 0 {
-		addrParts := strings.SplitN(cfg.ListenAddressPrivileged, "://", 2)
-		if len(addrParts) != 2 {
-			return fmt.Errorf(
-				"invalid priviledged listening address %s (use fully formed addresses, including the tcp:// or unix:// prefix)",
-				cfg.ListenAddressPrivileged,
-			)
-		}
-	} else {
+	if len(cfg.ListenAddressPrivileged) <= 0 {
 		return fmt.Errorf("invalid priviledged listening address, cannot be blank, please ensure a value is set in the config")
 	}
 

@@ -56,5 +56,4 @@ func (s *Service) OnStop() {
 		s.fetcher.Stop()
 	}
 	s.BaseService.OnStop()
-	//TODO: Add stopping logic
 }
