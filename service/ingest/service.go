@@ -28,7 +28,7 @@ func NewIngestService(
 	//
 
 	// Instantiate new fetcher (gRPC client)
-	fetcher, err := fetcher.NewFetcher(cfg.GRPCClient.ListenAddress, logger)
+	fetcher, err := fetcher.NewFetcher(cfg.GRPCClient.ListenAddress, logger, cfg.GRPCClient)
 	if err != nil {
 		return nil, fmt.Errorf("error creating new fetcher: %v", err)
 	}
@@ -52,6 +52,9 @@ func NewIngestService(
 
 func (s *Service) OnStart() error {
 	if s.IsRunning() {
+		if err := s.config.GRPCClient.ValidateBasic(); err != nil {
+			return fmt.Errorf("error validating gRPC client configuration: %v", err)
+		}
 		s.fetcher.Start()
 	}
 	return nil

@@ -21,18 +21,23 @@ var StartCmd = &cobra.Command{
 		logger := slog.New(textHandler)
 		service, err := ingest.NewIngestService(*logger)
 		if err != nil {
-			logger.Error("Failed to instantiate a new ingest service: %v", err.Error())
+			logger.Error("failed to instantiate a new ingest service", "error", err)
 		}
 		err = service.Start()
 		if err != nil {
-			logger.Error("Failed to start the ingest service: %v", err.Error())
+			logger.Error("failed to start the ingest service", "error", err)
+			if service.IsRunning() {
+				service.Stop()
+			}
+			logger.Info("ingest service start aborted")
+			os.Exit(1)
 		}
 
 		// Stop upon receiving SIGTERM or CTRL-C.
 		rpcos.TrapSignal(*logger, func() {
 			// Cleanup
 			if err := service.Stop(); err != nil {
-				logger.Error("Error while stopping server", "err", err)
+				logger.Error("error while stopping server", "err", err)
 			}
 		})
 
