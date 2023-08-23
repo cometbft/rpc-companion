@@ -2,7 +2,10 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -12,14 +15,6 @@ type Config struct {
 	// Options for services
 	Storage    *StorageConfig    `mapstructure:"storage"`
 	GRPCClient *GRPCClientConfig `mapstructure:"grpc_client"`
-}
-
-// DefaultConfig returns a default configuration for a node
-func DefaultConfig() *Config {
-	return &Config{
-		Storage:    DefaultStorageConfig(),
-		GRPCClient: DefaultGRPCClientConfig(),
-	}
 }
 
 // ValidateBasic performs basic validation and
@@ -32,7 +27,6 @@ func (cfg *Config) ValidateBasic() error {
 }
 
 type BaseConfig struct { //nolint: maligned
-
 	// The root directory for all data.
 	// This should be set in viper, so it can unmarshal into this struct
 	RootDir string `mapstructure:"home"`
@@ -64,14 +58,6 @@ type GRPCClientConfig struct { //nolint: maligned
 	ListenAddressPrivileged string `mapstructure:"privileged_address"`
 }
 
-// DefaultGRPCClientConfig returns a default configuration for the gRPC fetcher layer
-func DefaultGRPCClientConfig() *GRPCClientConfig {
-	return &GRPCClientConfig{
-		ListenAddress:           "",
-		ListenAddressPrivileged: "",
-	}
-}
-
 // ValidateBasic performs basic validation for the
 // [grpc_client] config section
 func (cfg *GRPCClientConfig) ValidateBasic() error {
@@ -100,4 +86,38 @@ func (cfg *GRPCClientConfig) ValidateBasic() error {
 	}
 
 	return nil
+}
+
+func LoadConfig(configPath string) (Config, error) {
+	config := Config{}
+	if configPath != "" {
+		p := filepath.Join(configPath)
+		filename := filepath.Base(p)
+		ext := filepath.Ext(filename)
+		configName := strings.TrimSuffix(filename, ext)
+		path := filepath.Dir(p)
+		viper.SetConfigName(configName)
+		viper.SetConfigType(strings.Replace(ext, ".", "", 1))
+		viper.AddConfigPath(path)
+	} else {
+		viper.SetConfigName("config") // name of config file (without extension)
+		viper.SetConfigType("toml")
+		viper.AddConfigPath("$HOME/.rpc-companion") // call multiple times to add many search paths
+		viper.AddConfigPath(".")
+	}
+
+	err := viper.ReadInConfig() // Find and read the config file
+
+	if err != nil { // Handle errors reading the config file
+		return config, fmt.Errorf("error reading configuration file")
+	} else {
+		err := viper.Unmarshal(&config)
+		if err != nil {
+			return config, fmt.Errorf("cannot unmarshall configuration file")
+		}
+		if err := config.GRPCClient.ValidateBasic(); err != nil {
+			return config, fmt.Errorf("error validating gRPC client configuration: %v", err)
+		}
+		return config, nil
+	}
 }

@@ -3,26 +3,26 @@ package fetcher
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"time"
+
 	"github.com/cometbft/cometbft/rpc/grpc/client"
 	"github.com/cometbft/cometbft/rpc/grpc/client/privileged"
 	"github.com/cometbft/rpc-companion/config"
 	service "github.com/cometbft/rpc-companion/service/base"
-	"log/slog"
-	"time"
 )
 
 type Fetcher struct {
 	service.BaseService
-	config   *config.GRPCClientConfig
+	config   *config.Config
 	endpoint string
 	logger   slog.Logger
 }
 
-func NewFetcher(listenAddress string, logger slog.Logger, cfg *config.GRPCClientConfig) (*Fetcher, error) {
+func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 	return &Fetcher{
-		endpoint: listenAddress,
-		logger:   logger,
-		config:   cfg,
+		logger: logger,
+		config: cfg,
 	}, nil
 }
 
@@ -37,7 +37,7 @@ func (f *Fetcher) GetBlock(height int64) (*client.Block, error) {
 		return nil, fmt.Errorf("error creating a gRPC client: %v", err)
 	}
 
-	//// Get Block
+	//// Get Block By Height
 	block, err := conn.GetBlockByHeight(ctx, height)
 	if err != nil {
 		return nil, fmt.Errorf("error getting block: %v\n", err)
@@ -53,7 +53,7 @@ func (f *Fetcher) GetBlockRetainHeight() (privileged.RetainHeights, error) {
 	defer cancel()
 
 	// Privileged Services
-	conn, err := privileged.New(ctx, f.config.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
+	conn, err := privileged.New(ctx, f.config.GRPCClient.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
 	defer conn.Close()
 	if err != nil {
 		fmt.Printf("error new priviledge client: %v\n", err)
@@ -67,7 +67,6 @@ func (f *Fetcher) GetBlockRetainHeight() (privileged.RetainHeights, error) {
 		}, fmt.Errorf("error getting the block retain height: %v\n", err)
 	}
 	return retainHeight, nil
-
 }
 
 func (f *Fetcher) OnStart() error {

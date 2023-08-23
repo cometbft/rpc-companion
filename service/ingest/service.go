@@ -2,10 +2,11 @@ package ingest
 
 import (
 	"fmt"
+	"log/slog"
+
 	"github.com/cometbft/rpc-companion/config"
 	"github.com/cometbft/rpc-companion/service/base"
 	"github.com/cometbft/rpc-companion/service/ingest/fetcher"
-	"log/slog"
 )
 
 type Service struct {
@@ -17,18 +18,11 @@ type Service struct {
 
 func NewIngestService(
 	logger slog.Logger,
+	config config.Config,
 ) (*Service, error) {
 
-	cfg := config.DefaultConfig()
-
-	//// Database
-	//db := storage.PostgresStorage{
-	//	ConnectionString: "",
-	//}
-	//
-
 	// Instantiate new fetcher (gRPC client)
-	fetcher, err := fetcher.NewFetcher(cfg.GRPCClient.ListenAddress, logger, cfg.GRPCClient)
+	fetcher, err := fetcher.NewFetcher(logger, &config)
 	if err != nil {
 		return nil, fmt.Errorf("error creating new fetcher: %v", err)
 	}
@@ -39,7 +33,7 @@ func NewIngestService(
 
 	// Ingest Service
 	ingest := &Service{
-		config:  cfg,
+		config:  &config,
 		fetcher: fetcher,
 		//storage: &db,
 	}
@@ -52,9 +46,6 @@ func NewIngestService(
 
 func (s *Service) OnStart() error {
 	if s.IsRunning() {
-		if err := s.config.GRPCClient.ValidateBasic(); err != nil {
-			return fmt.Errorf("error validating gRPC client configuration: %v", err)
-		}
 		s.fetcher.Start()
 	}
 	return nil
