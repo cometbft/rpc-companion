@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/cometbft/rpc-companion/config"
+	"github.com/cometbft/rpc-companion/ingest"
 	rpcos "github.com/cometbft/rpc-companion/libs/os"
-	"github.com/cometbft/rpc-companion/service/ingest"
 	"github.com/spf13/cobra"
 )
 

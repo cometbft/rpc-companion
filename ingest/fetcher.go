@@ -1,4 +1,4 @@
-package fetcher
+package ingest
 
 import (
 	"context"
@@ -9,11 +9,10 @@ import (
 	"github.com/cometbft/cometbft/rpc/grpc/client"
 	"github.com/cometbft/cometbft/rpc/grpc/client/privileged"
 	"github.com/cometbft/rpc-companion/config"
-	service "github.com/cometbft/rpc-companion/service/base"
 )
 
 type Fetcher struct {
-	service.BaseService
+	BaseService
 	config *config.Config
 	logger slog.Logger
 }
