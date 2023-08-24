@@ -19,16 +19,17 @@ func NewIngestService(
 	logger slog.Logger,
 	config config.Config,
 ) (*IngestService, error) {
+	logger = *logger.With("service", "Ingest")
 
 	// Instantiate new fetcher (gRPC client)
 	fetcher, err := NewFetcher(logger, &config)
 	if err != nil {
-		return nil, fmt.Errorf("error creating new fetcher: %v", err)
+		logger.Error("Creating new fetcher", "error", err)
+		return nil, fmt.Errorf("error creating new fetcher")
 	}
 
 	// Configure Fetcher service
 	fetcher.BaseService = *NewBaseService(logger, "Fetcher", fetcher)
-	fetcher.SetLogger(*logger.With("service", "fetcher"))
 
 	// Ingest Service
 	ingest := &IngestService{
@@ -38,7 +39,6 @@ func NewIngestService(
 	}
 
 	ingest.BaseService = *NewBaseService(logger, "Ingest", ingest)
-	ingest.SetLogger(*logger.With("service", "ingest"))
 
 	return ingest, nil
 }

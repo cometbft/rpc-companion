@@ -12,10 +12,10 @@ import (
 // with code 0.
 func TrapSignal(logger slog.Logger, cb func()) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		for sig := range c {
-			logger.Info("signal trapped", "msg", fmt.Sprintf("captured %v, exiting...", sig))
+			logger.Info(fmt.Sprintf("Signal %v captured, exiting...", sig))
 			if cb != nil {
 				cb()
 			}

@@ -131,11 +131,7 @@ func (bs *BaseService) Start() error {
 			atomic.StoreUint32(&bs.started, 0)
 			return ErrAlreadyStopped
 		}
-		bs.Logger.Info("service start",
-			"msg",
-			fmt.Sprintf("Starting %v service", bs.name),
-			"impl",
-			bs.impl.String())
+		bs.Logger.Info(fmt.Sprintf("Starting %v service", bs.name))
 		err := bs.impl.OnStart()
 		if err != nil {
 			// revert flag
@@ -168,11 +164,7 @@ func (bs *BaseService) Stop() error {
 			atomic.StoreUint32(&bs.stopped, 0)
 			return ErrNotStarted
 		}
-		bs.Logger.Info("service stop",
-			"msg",
-			fmt.Sprintf("Stopping %v service", bs.name),
-			"impl",
-			bs.impl)
+		bs.Logger.Info(fmt.Sprintf("Stopping %v service", bs.name))
 		bs.impl.OnStop()
 		close(bs.quit)
 		return nil

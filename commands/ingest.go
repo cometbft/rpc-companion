@@ -38,22 +38,22 @@ var ingestStartCmd = &cobra.Command{
 		// Load configuration file
 		config, err := config.LoadConfig(FlagConfigPath)
 		if err != nil {
-			logger.Error("error reading configuration file:", err)
+			logger.Error("Read configuration file", "error", err)
 			os.Exit(1)
 		}
 
 		service, err := ingest.NewIngestService(*logger, config)
 		if err != nil {
-			logger.Error("failed to instantiate a new ingest service", "error", err)
+			logger.Error("Create new ingest service", "error", err)
 		}
 
 		err = service.Start()
 		if err != nil {
-			logger.Error("failed to start the ingest service", "error", err)
+			logger.Error("Start the ingest service", "error", err)
 			if service.IsRunning() {
 				service.Stop()
 			}
-			logger.Info("ingest service start aborted")
+			logger.Info("Ingest service start aborted")
 			os.Exit(1)
 		}
 
@@ -61,9 +61,15 @@ var ingestStartCmd = &cobra.Command{
 		rpcos.TrapSignal(*logger, func() {
 			// Cleanup
 			if err := service.Stop(); err != nil {
-				logger.Error("error while stopping server", "err", err)
+				if err != nil {
+					logger.Error("Stopping Ingest service", "error", err)
+				}
+			} else {
+				logger.Info("Stopped Ingest service")
 			}
 		})
+
+		// Loop - non-blocking
 		select {}
 	},
 }
