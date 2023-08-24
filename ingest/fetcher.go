@@ -17,15 +17,40 @@ var (
 
 type Fetcher struct {
 	BaseService
-	config *config.Config
-	logger slog.Logger
+	config   *config.Config
+	services *ServiceClient
+	context  *context.Context
+	logger   slog.Logger
 }
 
 func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 	logger = *logger.With("module", "Fetcher")
+
+	ctx, _ := context.WithTimeout(context.Background(), requestDefaultTimeout)
+
+	// Service
+	conn, err := client.New(ctx, cfg.GRPCClient.ListenAddress, client.WithBlockServiceEnabled(true), client.WithInsecure()) //TODO: In the future support secure connections
+	if err != nil {
+		logger.Error("New client", "error", err)
+		return nil, fmt.Errorf("error creating new client")
+	}
+
+	// Privileged ServiceClient
+	privConn, err := privileged.New(ctx, cfg.GRPCClient.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
+	if err != nil {
+		logger.Error("New privileged client", "error", err)
+		return nil, fmt.Errorf("error creating new privileged client")
+	}
+
+	services := ServiceClient{
+		client:           conn,
+		privilegedClient: privConn,
+	}
 	return &Fetcher{
-		logger: logger,
-		config: cfg,
+		logger:   logger,
+		config:   cfg,
+		context:  &ctx,
+		services: &services,
 	}, nil
 }
 
@@ -35,19 +60,8 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 // GetBlock returns block at a specific height
 func (f *Fetcher) GetBlock(height int64) (*client.Block, error) {
 	logger := *f.logger.With("method", "GetBlock")
-	// Create a context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestDefaultTimeout)
-	defer cancel()
 
-	conn, err := client.New(ctx, f.config.GRPCClient.ListenAddress, client.WithBlockServiceEnabled(true), client.WithInsecure()) //TODO: In the future support secure connections
-	if err != nil {
-		logger.Error("New client", "error", err)
-		return nil, fmt.Errorf("error creating new client")
-	}
-	defer conn.Close()
-
-	//// Get Block By Height
-	block, err := conn.GetBlockByHeight(ctx, height)
+	block, err := f.services.client.GetBlockByHeight(*f.context, height)
 	if err != nil {
 		logger.Error("Get block", "error", err, "height", height)
 		return nil, fmt.Errorf("error getting block")
@@ -59,19 +73,8 @@ func (f *Fetcher) GetBlock(height int64) (*client.Block, error) {
 // GetBlockResults returns block results at a specific height
 func (f *Fetcher) GetBlockResults(height int64) (*client.BlockResults, error) {
 	logger := *f.logger.With("method", "GetBlockResults")
-	// Create a context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestDefaultTimeout)
-	defer cancel()
 
-	conn, err := client.New(ctx, f.config.GRPCClient.ListenAddress, client.WithBlockServiceEnabled(true), client.WithInsecure()) //TODO: In the future support secure connections
-	if err != nil {
-		logger.Error("New client", "error", err)
-		return nil, fmt.Errorf("error creating new client")
-	}
-	defer conn.Close()
-
-	//// Get Block Results By Height
-	blockResults, err := conn.GetBlockResults(ctx, height)
+	blockResults, err := f.services.client.GetBlockResults(*f.context, height)
 	if err != nil {
 		logger.Error("Get block results", "error", err)
 		return nil, fmt.Errorf("error getting block results")
@@ -83,22 +86,8 @@ func (f *Fetcher) GetBlockResults(height int64) (*client.BlockResults, error) {
 // GetBlockRetainHeight Get Block Retain Height value
 func (f *Fetcher) GetBlockRetainHeight() (privileged.RetainHeights, error) {
 	logger := *f.logger.With("method", "GetBlockRetainHeight")
-	// Create a context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestDefaultTimeout)
-	defer cancel()
 
-	// Privileged Services
-	conn, err := privileged.New(ctx, f.config.GRPCClient.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		logger.Error("New privileged client", "error", err)
-		return privileged.RetainHeights{
-			App:            0,
-			PruningService: 0,
-		}, fmt.Errorf("error new priviledged client")
-	}
-
-	retainHeight, err := conn.GetBlockRetainHeight(ctx)
+	retainHeight, err := f.services.privilegedClient.GetBlockRetainHeight(*f.context)
 	if err != nil {
 		logger.Error("Get block retain height", "error", err)
 		return privileged.RetainHeights{
@@ -113,19 +102,8 @@ func (f *Fetcher) GetBlockRetainHeight() (privileged.RetainHeights, error) {
 // SetBlockRetainHeight Set Block Retain Height value
 func (f *Fetcher) SetBlockRetainHeight(height uint64) error {
 	logger := *f.logger.With("method", "SetBlockRetainHeight")
-	// Create a context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestDefaultTimeout)
-	defer cancel()
 
-	// Privileged Services
-	conn, err := privileged.New(ctx, f.config.GRPCClient.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		logger.Error("New privileged client", "error", err)
-		return fmt.Errorf("error new priviledge client")
-	}
-
-	err = conn.SetBlockRetainHeight(ctx, height)
+	err := f.services.privilegedClient.SetBlockRetainHeight(*f.context, height)
 	if err != nil {
 		logger.Error("Set block retain height", "error", err)
 		return fmt.Errorf("error setting the block retain height")
@@ -137,19 +115,8 @@ func (f *Fetcher) SetBlockRetainHeight(height uint64) error {
 // GetBlockResultsRetainHeight Get Block Retain Height value
 func (f *Fetcher) GetBlockResultsRetainHeight() (uint64, error) {
 	logger := *f.logger.With("method", "GetBlockResultsRetainHeight")
-	// Create a context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestDefaultTimeout)
-	defer cancel()
 
-	// Privileged Services
-	conn, err := privileged.New(ctx, f.config.GRPCClient.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		logger.Error("New privileged client", "error", err)
-		return 0, fmt.Errorf("error new priviledge client")
-	}
-
-	retainHeight, err := conn.GetBlockResultsRetainHeight(ctx)
+	retainHeight, err := f.services.privilegedClient.GetBlockResultsRetainHeight(*f.context)
 	if err != nil {
 		logger.Error("Get block results retain height", "error", err)
 		return 0, fmt.Errorf("error getting block results retain height")
@@ -161,19 +128,8 @@ func (f *Fetcher) GetBlockResultsRetainHeight() (uint64, error) {
 // SetBlockResultsRetainHeight Set Block Results Retain Height value
 func (f *Fetcher) SetBlockResultsRetainHeight(height uint64) error {
 	logger := *f.logger.With("method", "SetBlockResultsRetainHeight")
-	// Create a context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestDefaultTimeout)
-	defer cancel()
 
-	// Privileged Services
-	conn, err := privileged.New(ctx, f.config.GRPCClient.ListenAddressPrivileged, privileged.WithPruningServiceEnabled(true), privileged.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		logger.Error("New privileged client", "error", err)
-		return fmt.Errorf("error new priviledge client: %v", err)
-	}
-
-	err = conn.SetBlockResultsRetainHeight(ctx, height)
+	err := f.services.privilegedClient.SetBlockResultsRetainHeight(*f.context, height)
 	if err != nil {
 		logger.Error("Set block results retain height", "error", err)
 		return fmt.Errorf("error setting block results retain height")
@@ -182,12 +138,10 @@ func (f *Fetcher) SetBlockResultsRetainHeight(height uint64) error {
 	return nil
 }
 
-func (f *Fetcher) GetNewBlockStream(ctx *context.Context) (<-chan client.LatestHeightResult, error) {
+func (f *Fetcher) GetNewBlockStream() (<-chan client.LatestHeightResult, error) {
 	logger := *f.logger.With("method", "GetNewBlockStream")
-	// Privileged Services
-	conn, err := client.New(*ctx, f.config.GRPCClient.ListenAddress, client.WithBlockServiceEnabled(true), client.WithInsecure())
 
-	newHeightCh, err := conn.GetLatestHeight(*ctx)
+	newHeightCh, err := f.services.client.GetLatestHeight(*f.context)
 	if err != nil {
 		logger.Error("Get new block stream", "error", err)
 		return nil, fmt.Errorf("error get new block stream")
@@ -200,7 +154,7 @@ func (f *Fetcher) GetNewBlockStream(ctx *context.Context) (<-chan client.LatestH
 func (f *Fetcher) WatchNewBlock() {
 	logger := *f.logger.With("method", "WatchNewBlock")
 	ctx := context.Background()
-	newHeightCh, err := f.GetNewBlockStream(&ctx)
+	newHeightCh, err := f.GetNewBlockStream()
 	if err != nil {
 		logger.Error("New block stream", "error", err)
 		ctx.Done()
@@ -211,7 +165,7 @@ func (f *Fetcher) WatchNewBlock() {
 		for {
 			select {
 			case <-c.Done():
-				l.Info("Context not available to stream new blocks")
+				l.Info("Connection not available to stream new blocks")
 			case latestHeightResult, ok := <-ch:
 				if ok {
 					if latestHeightResult.Error != nil {
@@ -230,7 +184,7 @@ func (f *Fetcher) WatchNewBlock() {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-// Services methods
+// ServiceClient methods
 
 func (f *Fetcher) OnStart() error {
 

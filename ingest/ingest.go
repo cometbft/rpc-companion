@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cometbft/cometbft/rpc/grpc/client"
+	"github.com/cometbft/cometbft/rpc/grpc/client/privileged"
 	"github.com/cometbft/rpc-companion/config"
 )
 
@@ -13,6 +15,12 @@ type IngestService struct {
 	config  *config.Config
 	fetcher *Fetcher
 	//storage storage.IStorage
+}
+
+// ServiceClient GRPC clients
+type ServiceClient struct {
+	client           client.Client
+	privilegedClient privileged.Client
 }
 
 func NewIngestService(

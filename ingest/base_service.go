@@ -52,7 +52,7 @@ type Service interface {
 }
 
 /*
-Classical-inheritance-style service declarations. Services can be started, then
+Classical-inheritance-style service declarations. ServiceClient can be started, then
 stopped, then optionally restarted.
 
 Users can override the OnStart/OnStop methods. In the absence of errors, these
