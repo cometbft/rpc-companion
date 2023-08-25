@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cometbft/cometbft/libs/json"
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cometbft/cometbft/rpc/grpc/client"
 	_ "github.com/lib/pq"
 )
 
@@ -57,12 +57,12 @@ func (c *Storage) Ping() error {
 	}
 }
 
-func (c *Storage) InsertHeader(height int64, header ctypes.ResultHeader) error {
-	headerBytes, err := json.Marshal(header)
+func (c *Storage) InsertBlock(height uint64, block *client.Block) error {
+	data, err := json.Marshal(block)
 	if err != nil {
 		return err
 	} else {
-		_, err = c.connection.Exec("INSERT INTO comet.header (height, header) values ($1,$2)", height, &headerBytes)
+		_, err = c.connection.Exec("INSERT INTO comet.block (height, data) values ($1,$2)", height, &data)
 		if err != nil {
 			return err
 		} else {
@@ -71,18 +71,17 @@ func (c *Storage) InsertHeader(height int64, header ctypes.ResultHeader) error {
 	}
 }
 
-func (c *Storage) GetHeader(height int64) (ctypes.ResultHeader, error) {
-	var header ctypes.ResultHeader
-	var headerBytes []byte
-	row := c.connection.QueryRow("SELECT header FROM comet.header WHERE height=$1", height)
-	err := row.Scan(
-		&headerBytes)
+func (c *Storage) GetHeader(height uint64) (*client.Block, error) {
+	var block *client.Block
+	var data []byte
+	row := c.connection.QueryRow("SELECT block FROM comet.block WHERE height=$1", height)
+	err := row.Scan(&data)
 	if err != nil {
-		return header, err
+		return block, err
 	}
-	err = json.Unmarshal(headerBytes, &header)
+	err = json.Unmarshal(data, &block)
 	if err != nil {
-		return header, err
+		return block, err
 	}
-	return header, nil
+	return block, nil
 }

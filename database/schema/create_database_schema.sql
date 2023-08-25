@@ -47,13 +47,13 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- TABLE: comet.header
+-- TABLE: comet.block
 
-DROP TABLE IF EXISTS comet.header CASCADE;
+DROP TABLE IF EXISTS comet.block CASCADE;
 
-CREATE TABLE comet.header
+CREATE TABLE comet.block
 (
-    height bigint NOT NULL,
-    header bytea NOT NULL,
+    height  comet.uint64 NOT NULL,
+    data    bytea NOT NULL,
     CONSTRAINT block_pkey PRIMARY KEY (height)
 );
