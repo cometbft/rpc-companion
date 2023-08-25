@@ -21,7 +21,12 @@ type Fetcher struct {
 	services    *ServiceClient
 	context     *context.Context
 	logger      slog.Logger
-	workerQueue chan uint64
+	workerQueue chan FetcherJob
+}
+
+type FetcherJob struct {
+	height uint64
+	done   bool
 }
 
 func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
@@ -48,7 +53,7 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 		privilegedClient: privConn,
 	}
 
-	wQueue := make(chan uint64)
+	wQueue := make(chan FetcherJob)
 
 	return &Fetcher{
 		logger:      logger,
@@ -181,7 +186,10 @@ func (f *Fetcher) WatchNewBlock() {
 						l.Error("Error in new block", "error", latestHeightResult.Error)
 					} else {
 						l.Info("New block", "height", latestHeightResult.Height)
-						f.workerQueue <- uint64(latestHeightResult.Height)
+						f.workerQueue <- FetcherJob{
+							height: uint64(latestHeightResult.Height),
+							done:   false,
+						}
 					}
 				} else {
 					l.Info("New block streaming closed")
@@ -198,8 +206,11 @@ func (f *Fetcher) StartQueueProcessor() {
 	logger.Info("Starting Worker")
 	go func(f *Fetcher) {
 		for {
-			h := <-f.workerQueue
-			f.logger.Info("Processing job", "height", h)
+			job := <-f.workerQueue
+			f.logger.Info("Processing job", "height", job.height)
+			// Do work....
+			job.done = true
+			f.logger.Info("Processed job", "height", job.height)
 		}
 	}(f)
 }
