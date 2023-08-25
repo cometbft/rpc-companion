@@ -14,27 +14,38 @@ import (
 
 var (
 	requestDefaultTimeout = 10 * time.Second
+	blockQueue            = make(chan Job[client.Block]) // Queue to process blocks
 )
+
+type CometType interface {
+	client.Block | client.BlockResults
+}
 
 type Fetcher struct {
 	BaseService
-	config      *config.Config
-	services    *ServiceClient
-	context     *context.Context
-	logger      slog.Logger
-	workerQueue chan FetcherJob
-	storage     *storage.Storage
+	config   *config.Config
+	services *ServiceClient
+	context  context.Context
+	logger   slog.Logger
+	storage  *storage.Storage
 }
 
-type FetcherJob struct {
-	height uint64
-	done   bool
+type Job[T CometType] struct {
+	done      bool
+	cometType T
+}
+
+func NewJob[T CometType](cType T) Job[T] {
+	return Job[T]{
+		done:      false,
+		cometType: cType,
+	}
 }
 
 func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 	logger = *logger.With("module", "Fetcher")
 
-	ctx, _ := context.WithTimeout(context.Background(), requestDefaultTimeout)
+	ctx := context.Background()
 
 	// Service
 	conn, err := client.New(ctx, cfg.GRPCClient.ListenAddress, client.WithBlockServiceEnabled(true), client.WithInsecure()) //TODO: In the future support secure connections
@@ -56,9 +67,6 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 		privilegedClient: privConn,
 	}
 
-	// Worker queue
-	wQueue := make(chan FetcherJob)
-
 	// Storage
 	db, err := storage.NewStorage(cfg.Storage.Connection)
 	if err != nil {
@@ -67,12 +75,11 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 	}
 
 	return &Fetcher{
-		logger:      logger,
-		config:      cfg,
-		context:     &ctx,
-		services:    &services,
-		workerQueue: wQueue,
-		storage:     &db,
+		logger:   logger,
+		config:   cfg,
+		context:  ctx,
+		services: &services,
+		storage:  &db,
 	}, nil
 }
 
@@ -83,7 +90,7 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 func (f *Fetcher) GetBlock(height int64) (*client.Block, error) {
 	logger := *f.logger.With("method", "GetBlock")
 
-	block, err := f.services.client.GetBlockByHeight(*f.context, height)
+	block, err := f.services.client.GetBlockByHeight(f.context, height)
 	if err != nil {
 		logger.Error("Get block", "error", err, "height", height)
 		return nil, fmt.Errorf("error getting block")
@@ -96,7 +103,7 @@ func (f *Fetcher) GetBlock(height int64) (*client.Block, error) {
 func (f *Fetcher) GetBlockResults(height int64) (*client.BlockResults, error) {
 	logger := *f.logger.With("method", "GetBlockResults")
 
-	blockResults, err := f.services.client.GetBlockResults(*f.context, height)
+	blockResults, err := f.services.client.GetBlockResults(f.context, height)
 	if err != nil {
 		logger.Error("Get block results", "error", err)
 		return nil, fmt.Errorf("error getting block results")
@@ -109,7 +116,7 @@ func (f *Fetcher) GetBlockResults(height int64) (*client.BlockResults, error) {
 func (f *Fetcher) GetBlockRetainHeight() (privileged.RetainHeights, error) {
 	logger := *f.logger.With("method", "GetBlockRetainHeight")
 
-	retainHeight, err := f.services.privilegedClient.GetBlockRetainHeight(*f.context)
+	retainHeight, err := f.services.privilegedClient.GetBlockRetainHeight(f.context)
 	if err != nil {
 		logger.Error("Get block retain height", "error", err)
 		return privileged.RetainHeights{
@@ -125,7 +132,7 @@ func (f *Fetcher) GetBlockRetainHeight() (privileged.RetainHeights, error) {
 func (f *Fetcher) SetBlockRetainHeight(height uint64) error {
 	logger := *f.logger.With("method", "SetBlockRetainHeight")
 
-	err := f.services.privilegedClient.SetBlockRetainHeight(*f.context, height)
+	err := f.services.privilegedClient.SetBlockRetainHeight(f.context, height)
 	if err != nil {
 		logger.Error("Set block retain height", "error", err)
 		return fmt.Errorf("error setting the block retain height")
@@ -138,7 +145,7 @@ func (f *Fetcher) SetBlockRetainHeight(height uint64) error {
 func (f *Fetcher) GetBlockResultsRetainHeight() (uint64, error) {
 	logger := *f.logger.With("method", "GetBlockResultsRetainHeight")
 
-	retainHeight, err := f.services.privilegedClient.GetBlockResultsRetainHeight(*f.context)
+	retainHeight, err := f.services.privilegedClient.GetBlockResultsRetainHeight(f.context)
 	if err != nil {
 		logger.Error("Get block results retain height", "error", err)
 		return 0, fmt.Errorf("error getting block results retain height")
@@ -151,7 +158,7 @@ func (f *Fetcher) GetBlockResultsRetainHeight() (uint64, error) {
 func (f *Fetcher) SetBlockResultsRetainHeight(height uint64) error {
 	logger := *f.logger.With("method", "SetBlockResultsRetainHeight")
 
-	err := f.services.privilegedClient.SetBlockResultsRetainHeight(*f.context, height)
+	err := f.services.privilegedClient.SetBlockResultsRetainHeight(f.context, height)
 	if err != nil {
 		logger.Error("Set block results retain height", "error", err)
 		return fmt.Errorf("error setting block results retain height")
@@ -163,7 +170,7 @@ func (f *Fetcher) SetBlockResultsRetainHeight(height uint64) error {
 func (f *Fetcher) GetNewBlockStream() (<-chan client.LatestHeightResult, error) {
 	logger := *f.logger.With("method", "GetNewBlockStream")
 
-	newHeightCh, err := f.services.client.GetLatestHeight(*f.context)
+	newHeightCh, err := f.services.client.GetLatestHeight(f.context)
 	if err != nil {
 		logger.Error("Get new block stream", "error", err)
 		return nil, fmt.Errorf("error get new block stream")
@@ -185,7 +192,7 @@ func (f *Fetcher) WatchNewBlock() {
 	}
 
 	// Start the queue processor
-	f.StartQueueProcessor()
+	f.ProcessBlockJob()
 
 	go func(f *Fetcher, c context.Context, ch <-chan client.LatestHeightResult, l slog.Logger) {
 		for {
@@ -198,9 +205,12 @@ func (f *Fetcher) WatchNewBlock() {
 						l.Error("Error in new block", "error", latestHeightResult.Error)
 					} else {
 						l.Info("New block", "height", latestHeightResult.Height)
-						f.workerQueue <- FetcherJob{
-							height: uint64(latestHeightResult.Height),
-							done:   false,
+						block, err := f.services.client.GetBlockByHeight(c, latestHeightResult.Height)
+						if err != nil {
+							l.Error("Get block from storage", "error", err)
+						} else {
+							job := NewJob(*block)
+							blockQueue <- job
 						}
 					}
 				} else {
@@ -213,16 +223,20 @@ func (f *Fetcher) WatchNewBlock() {
 	}(f, ctx, newHeightCh, logger)
 }
 
-func (f *Fetcher) StartQueueProcessor() {
-	logger := *f.logger.With("method", "Worker")
+func (f *Fetcher) ProcessBlockJob() {
+	logger := *f.logger.With("method", "ProcessBlockJob")
 	logger.Info("Starting Worker")
-	go func(f *Fetcher) {
+	go func(fetcher *Fetcher) {
 		for {
-			job := <-f.workerQueue
-			f.logger.Info("Processing job", "height", job.height)
-			// Do work....
-			job.done = true
-			f.logger.Info("Processed job", "height", job.height)
+			job := <-blockQueue
+			fetcher.logger.Info("Processing job", "height", job.cometType.Block.Height)
+			err := fetcher.storage.InsertBlock(uint64(job.cometType.Block.Height), &job.cometType)
+			if err != nil {
+				logger.Error("Process block job", "error", err)
+			} else {
+				job.done = true
+				logger.Info("Processed block job", "height", job.cometType.Block.Height)
+			}
 		}
 	}(f)
 }
@@ -234,50 +248,54 @@ func (f *Fetcher) OnStart() error {
 
 	f.logger.Info("Service running")
 
-	// Get latest block retain height
-	rh, err := f.GetBlockRetainHeight()
-	if err != nil {
-		f.logger.Error("Get block retain height", "error", err)
-	}
-
-	// Fetch a block that is one block higher than the lowest block retain height
-	height := min(rh.PruningService, rh.App) + 1
-
-	_, err = f.GetBlock(int64(height))
-	if err != nil {
-		f.logger.Error("Get block", "error", err)
-	}
-
-	// Set Block Retain Height if it's higher than zero
-	if height > rh.PruningService {
-		err = f.SetBlockRetainHeight(height)
-		if err != nil {
-			f.logger.Error("Set Block Retain Height", "error", err)
-		}
-	} else {
-		f.logger.Info("Skip set block retain height. Retain height higher than App retain height")
-	}
-
-	// Check Block Results Retain Height
-	h, err := f.GetBlockResultsRetainHeight()
-	if err != nil {
-		f.logger.Error("Get Block Results Retain Height", "error", err)
-	}
-
-	// Get Block Results
-	br, err := f.GetBlockResults(int64(h + 1))
-	if err != nil {
-		f.logger.Error("Get Block Results", "error", err)
-	} else {
-		// Set Block Results Retain Height
-		err = f.SetBlockResultsRetainHeight(uint64(br.Height + 1))
-		if err != nil {
-			f.logger.Error("Set Block Results Retain Height", "error", err)
-		}
-	}
+	//// Get latest block retain height
+	//rh, err := f.GetBlockRetainHeight()
+	//if err != nil {
+	//	f.logger.Error("Get block retain height", "error", err)
+	//}
+	//
+	//// Fetch a block that is one block higher than the lowest block retain height
+	//height := min(rh.PruningService, rh.App) + 1
+	//
+	//_, err = f.GetBlock(int64(height))
+	//if err != nil {
+	//	f.logger.Error("Get block", "error", err)
+	//}
+	//
+	//// Set Block Retain Height if it's higher than zero
+	//if height > rh.PruningService {
+	//	err = f.SetBlockRetainHeight(height)
+	//	if err != nil {
+	//		f.logger.Error("Set Block Retain Height", "error", err)
+	//	}
+	//} else {
+	//	f.logger.Info("Skip set block retain height. Retain height higher than App retain height")
+	//}
+	//
+	//// Check Block Results Retain Height
+	//h, err := f.GetBlockResultsRetainHeight()
+	//if err != nil {
+	//	f.logger.Error("Get Block Results Retain Height", "error", err)
+	//}
+	//
+	//// Get Block Results
+	//br, err := f.GetBlockResults(int64(h + 1))
+	//if err != nil {
+	//	f.logger.Error("Get Block Results", "error", err)
+	//} else {
+	//	// Set Block Results Retain Height
+	//	err = f.SetBlockResultsRetainHeight(uint64(br.Height + 1))
+	//	if err != nil {
+	//		f.logger.Error("Set Block Results Retain Height", "error", err)
+	//	}
+	//}
 
 	// Stream new block events
 	f.WatchNewBlock()
 
 	return nil
+}
+
+func (f *Fetcher) OnStop() {
+	f.logger.Info("Service stopping")
 }
