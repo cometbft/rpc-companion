@@ -263,51 +263,7 @@ func (f *Fetcher) ProcessBlockJob() {
 // ServiceClient methods
 
 func (f *Fetcher) OnStart() error {
-
 	f.logger.Info("Service running")
-
-	//// Get latest block retain height
-	//rh, err := f.GetBlockRetainHeight()
-	//if err != nil {
-	//	f.logger.Error("Get block retain height", "error", err)
-	//}
-	//
-	//// Fetch a block that is one block higher than the lowest block retain height
-	//height := min(rh.PruningService, rh.App) + 1
-	//
-	//_, err = f.GetBlock(int64(height))
-	//if err != nil {
-	//	f.logger.Error("Get block", "error", err)
-	//}
-	//
-	//// Set Block Retain Height if it's higher than zero
-	//if height > rh.PruningService {
-	//	err = f.SetBlockRetainHeight(height)
-	//	if err != nil {
-	//		f.logger.Error("Set Block Retain Height", "error", err)
-	//	}
-	//} else {
-	//	f.logger.Info("Skip set block retain height. Retain height higher than App retain height")
-	//}
-	//
-	//// Check Block Results Retain Height
-	//h, err := f.GetBlockResultsRetainHeight()
-	//if err != nil {
-	//	f.logger.Error("Get Block Results Retain Height", "error", err)
-	//}
-	//
-	//// Get Block Results
-	//br, err := f.GetBlockResults(int64(h + 1))
-	//if err != nil {
-	//	f.logger.Error("Get Block Results", "error", err)
-	//} else {
-	//	// Set Block Results Retain Height
-	//	err = f.SetBlockResultsRetainHeight(uint64(br.Height + 1))
-	//	if err != nil {
-	//		f.logger.Error("Set Block Results Retain Height", "error", err)
-	//	}
-	//}
-
 	// Stream new block events
 	f.WatchNewBlock()
 
