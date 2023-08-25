@@ -9,6 +9,7 @@ import (
 	"github.com/cometbft/cometbft/rpc/grpc/client"
 	"github.com/cometbft/cometbft/rpc/grpc/client/privileged"
 	"github.com/cometbft/rpc-companion/config"
+	"github.com/cometbft/rpc-companion/storage"
 )
 
 var (
@@ -22,6 +23,7 @@ type Fetcher struct {
 	context     *context.Context
 	logger      slog.Logger
 	workerQueue chan FetcherJob
+	storage     *storage.Storage
 }
 
 type FetcherJob struct {
@@ -48,12 +50,21 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 		return nil, fmt.Errorf("error creating new privileged client")
 	}
 
+	// Client services connections
 	services := ServiceClient{
 		client:           conn,
 		privilegedClient: privConn,
 	}
 
+	// Worker queue
 	wQueue := make(chan FetcherJob)
+
+	// Storage
+	db, err := storage.NewStorage(cfg.Storage.Connection)
+	if err != nil {
+		logger.Error("New storage", "error", err)
+		return nil, fmt.Errorf("error creating new storage")
+	}
 
 	return &Fetcher{
 		logger:      logger,
@@ -61,6 +72,7 @@ func NewFetcher(logger slog.Logger, cfg *config.Config) (*Fetcher, error) {
 		context:     &ctx,
 		services:    &services,
 		workerQueue: wQueue,
+		storage:     &db,
 	}, nil
 }
 

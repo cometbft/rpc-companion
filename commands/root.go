@@ -31,7 +31,6 @@ func init() {
 	cobra.EnableCommandSorting = true
 
 	RootCmd.AddCommand(IngestCmd)
-	RootCmd.AddCommand(RpcCmd)
 }
 
 // RootCmd is the root command for CometBFT core.
