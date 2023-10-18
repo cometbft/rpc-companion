@@ -91,3 +91,19 @@ go build
 
 If everything is compiled and configured correctly, you will see logs displaying the ingest service fetching 
 new blocks. The service then sets the retain height information so CometBFT can prune them from its storage.
+
+```
+time=2023-10-18T17:23:55.311-04:00 level=INFO msg="New block" service=Ingest module=Fetcher method=WatchNewBlock height=1549
+time=2023-10-18T17:23:55.312-04:00 level=INFO msg="Get block" service=Ingest module=Fetcher method=GetBlock height=1549
+time=2023-10-18T17:23:55.312-04:00 level=INFO msg="Processing job" service=Ingest module=Fetcher height=1549
+time=2023-10-18T17:23:55.314-04:00 level=INFO msg="Get block retain height" service=Ingest module=Fetcher method=GetBlockRetainHeight retain_height=1548 app_retain_height=0
+time=2023-10-18T17:23:55.316-04:00 level=INFO msg="Set block retain height" service=Ingest module=Fetcher method=SetBlockRetainHeight height=1549
+time=2023-10-18T17:23:55.316-04:00 level=INFO msg="Processed block job" service=Ingest module=Fetcher method=ProcessBlockJob height=1549
+time=2023-10-18T17:23:56.327-04:00 level=INFO msg="New block" service=Ingest module=Fetcher method=WatchNewBlock height=1550
+time=2023-10-18T17:23:56.328-04:00 level=INFO msg="Get block" service=Ingest module=Fetcher method=GetBlock height=1550
+time=2023-10-18T17:23:56.328-04:00 level=INFO msg="Processing job" service=Ingest module=Fetcher height=1550
+time=2023-10-18T17:23:56.331-04:00 level=INFO msg="Get block retain height" service=Ingest module=Fetcher method=GetBlockRetainHeight retain_height=1549 app_retain_height=0
+time=2023-10-18T17:23:56.332-04:00 level=INFO msg="Set block retain height" service=Ingest module=Fetcher method=SetBlockRetainHeight height=1550
+time=2023-10-18T17:23:56.332-04:00 level=INFO msg="Processed block job" service=Ingest module=Fetcher method=ProcessBlockJob height=1550
+
+```
