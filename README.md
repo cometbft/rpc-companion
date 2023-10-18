@@ -1,13 +1,18 @@
 # RPC Companion (Work In Progress)
 
-This is the repository for the RPC Companion solution based on the Data Companion Pull API (ADR101)
+This is the repository for the RPC Companion solution based on the [ADR-101 - Data Companion Pull API](https://github.com/cometbft/cometbft/blob/main/docs/architecture/adr-101-data-companion-pull-api.md)
 
-Please see ADR102 RPC Companion {TODO: LINK} for more information in regards this implementation and architecture solution.
+Please see ADR-102 - RPC Companion for more information in regards this implementation and architecture solution.
 
 ## Starting the Postgres Database
 
-> NOTE: This assumes you have `Docker` and `Docker Compose` already installed in your machine
-> 
+> NOTE: This assumes you have [Docker](https://www.docker.com/) and Docker Compose already installed in your machine
+
+The RPC Companion reference implementation uses Postgres as its storage system that the ingest service uses to store the 
+data retrieved from the node. It uses a very straightforward schema in order to store the node data in a relational database.
+There is no normalization or a data schema that can store a structured data e.g. Block. Mostly the information is stored as 
+a byte array.
+
 Access the Docker folder:
 
 `cd ./database/docker`
@@ -51,6 +56,11 @@ cometbft start --proxy_app kvstore
 
 ## Start the ingest service
 
+The ingest service has a crucial role in monitoring new blocks generated on the CometBFT node. After detecting
+the newly created block, it retrieves the necessary information and inserts it into the database. 
+Once the data is safely stored, the service uses the data companion API to notify the node that the 
+information can be pruned.
+
 In order to run the ingest service please make sure you follow this steps outlined below.
 
 ### Configuration
@@ -80,5 +90,4 @@ go build
 ```
 
 If everything is compiled and configured correctly, you will see logs displaying the ingest service fetching 
-new blocks and block results. The service then sets the retain height information so CometBFT can prune 
-them from its storage.
+new blocks. The service then sets the retain height information so CometBFT can prune them from its storage.
