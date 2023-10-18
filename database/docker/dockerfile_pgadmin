@@ -1,4 +1,4 @@
-FROM dpage/pgadmin4
+FROM dpage/pgadmin4:latest
 USER pgadmin
 RUN mkdir -p  /var/lib/pgadmin/storage/pgadmin
 COPY ./pgpass /var/lib/pgadmin/storage/pgadmin/
