@@ -8,16 +8,16 @@ Please see ADR-102 - RPC Companion for more information in regards this implemen
 
 > NOTE: This assumes you have [Docker](https://www.docker.com/) and Docker Compose already installed in your machine
 
-The RPC Companion reference implementation uses Postgres as its storage system that the ingest service uses to store the 
-data retrieved from the node. It uses a very straightforward schema in order to store the node data in a relational database.
-There is no normalization or a data schema that can store a structured data e.g. Block. Mostly the information is stored as 
-a byte array.
+The reference implementation of RPC Companion utilizes Postgres as its ingest service storage system to save 
+the data acquired from the node. It employs a simple schema to store the node data in a relational database. 
+However, it does not normalize the data or utilize a schema that can store structured data such as a Block. 
+Essentially, the data is saved as a byte array.
 
-Access the Docker folder:
+In order to run the database, access the Docker folder:
 
 `cd ./database/docker`
 
-Run the services
+And run the docker services that will host the database (Postgres) and the database IDE (pgAdmin)
 
 `docker-compose -f docker-compose.yml up`
 
