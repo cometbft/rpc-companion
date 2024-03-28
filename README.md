@@ -2,7 +2,7 @@
 
 This is the repository for the RPC Companion solution based on the [ADR-101 - Data Companion Pull API](https://github.com/cometbft/cometbft/blob/main/docs/architecture/adr-101-data-companion-pull-api.md)
 
-Please see ADR-102 - RPC Companion for more information in regards this implementation and architecture solution.
+Please see [ADR-102 - RPC Companion](https://github.com/cometbft/cometbft/blob/main/docs/references/architecture/adr-102-rpc-companion.md) for more information in regards this implementation and architecture solution.
 
 ## Starting the Postgres Database
 
