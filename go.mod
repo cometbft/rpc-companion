@@ -7,7 +7,7 @@ toolchain go1.21.0
 require (
 	github.com/cometbft/cometbft v0.0.0-20231018171621-6c3642bc0c55
 	github.com/lib/pq v1.10.9
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.18.1
 )
 
