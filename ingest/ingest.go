@@ -15,7 +15,6 @@ type IngestService struct {
 	config       *config.Config
 	fetcher      *Fetcher
 	eventFetcher *EventFetcher
-	//storage storage.IStorage
 }
 
 // ServiceClient GRPC clients
@@ -29,6 +28,8 @@ func NewIngestService(
 	config config.Config,
 ) (*IngestService, error) {
 	logger = *logger.With("service", "Ingest")
+
+	// TODO Commented out to disable block fetching. Enable using both
 
 	// Instantiate new fetcher (gRPC client)
 	// fetcher, err := NewFetcher(logger, &config)
@@ -72,7 +73,7 @@ func (s *IngestService) OnStart() error {
 func (s *IngestService) OnStop() {
 	// if s.fetcher.IsRunning() {
 	// 	s.fetcher.Stop()
-	// }
+	// } // Commented out to not start fetching blocks
 	if s.eventFetcher.IsRunning() {
 		s.eventFetcher.Stop()
 	}

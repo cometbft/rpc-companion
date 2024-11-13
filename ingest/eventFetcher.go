@@ -169,35 +169,11 @@ func (f *EventFetcher) ProcessBlockJob() {
 			job := <-blockQueueResults
 			fetcher.logger.Info("Processing job", "height", job.cometType.Height)
 
-			fmt.Println(&job.cometType.FinalizeBlockEvents)
-			fmt.Println(&job.cometType.TxResults)
+			// fmt.Println(&job.cometType.FinalizeBlockEvents)
+			// fmt.Println(&job.cometType.TxResults)
 
 			ForwardData(job)
-			// err := fetcher.storage.InsertBlock(uint64(job.cometType.Height), &job.cometType)
-			// if err != nil {
-			// 	logger.Error("Process block job", "error", err)
-			// } else {
-			// 	// Update block retain height if lower
-			// 	// Get latest block retain height
-			// 	rh, err := f.GetBlockRetainHeight()
-			// 	// if err != nil {
-			// 	// 	logger.Error("Get block retain height", "error", err)
-			// 	// } else {
-			// 	// 	if rh.PruningService < uint64(job.cometType.Block.Height) {
-			// 	// 		// This is a naive way of setting the retain height,
-			// 	// 		// ideally there should be a process that checks the storage
-			// 	// 		// to query inserted blocks and if there's a gap in the last
-			// 	// 		// inserted block and the block in the job. Setting to the job
-			// 	// 		// height will prune previous blocks that were not inserted yet.
-			// 	// 		err := f.SetBlockRetainHeight(uint64(job.cometType.Block.Height))
-			// 	// 		if err != nil {
-			// 	// 			logger.Error("Set block retain height", "error", err)
-			// 	// 		}
-			// 	// 	}
-			// 	// }
-			// 	job.done = true
-			// 	logger.Info("Processed block job", "height", job.cometType.Height)
-			// }
+			// TODO Understand if data is stored and instruct CometBFT to delete it
 		}
 	}(f)
 }
