@@ -1,0 +1,6 @@
+[grpc_client]
+address = "0.0.0.0:26661"
+privileged_address = "0.0.0.0:8088"
+
+[storage]
+connection = "postgres://postgres:postgres@0.0.0.0:15432/postgres?sslmode=disable"

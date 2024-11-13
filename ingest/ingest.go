@@ -12,8 +12,9 @@ import (
 // IngestService orchestrates the ingest services
 type IngestService struct {
 	BaseService
-	config  *config.Config
-	fetcher *Fetcher
+	config       *config.Config
+	fetcher      *Fetcher
+	eventFetcher *EventFetcher
 	//storage storage.IStorage
 }
 
@@ -30,19 +31,28 @@ func NewIngestService(
 	logger = *logger.With("service", "Ingest")
 
 	// Instantiate new fetcher (gRPC client)
-	fetcher, err := NewFetcher(logger, &config)
+	// fetcher, err := NewFetcher(logger, &config)
+	// if err != nil {
+	// 	logger.Error("Creating new fetcher", "error", err)
+	// 	return nil, fmt.Errorf("error creating new fetcher")
+	// }
+
+	// // Configure Fetcher service
+	// fetcher.BaseService = *NewBaseService(logger, "Fetcher", fetcher)
+
+	eventFetcher, err := NewEventFetcher(logger, &config)
+
 	if err != nil {
-		logger.Error("Creating new fetcher", "error", err)
-		return nil, fmt.Errorf("error creating new fetcher")
+		logger.Error("creating new event fetcher", "error", err)
+		return nil, fmt.Errorf("error creating new event fetcher")
 	}
 
-	// Configure Fetcher service
-	fetcher.BaseService = *NewBaseService(logger, "Fetcher", fetcher)
-
+	eventFetcher.BaseService = *NewBaseService(logger, "EventFetcher", eventFetcher)
 	// Ingest Service
 	ingest := &IngestService{
-		config:  &config,
-		fetcher: fetcher,
+		config: &config,
+		// fetcher:      fetcher,
+		eventFetcher: eventFetcher,
 		//storage: &db,
 	}
 
@@ -53,14 +63,18 @@ func NewIngestService(
 
 func (s *IngestService) OnStart() error {
 	if s.IsRunning() {
-		s.fetcher.Start()
+		// s.fetcher.Start()
+		s.eventFetcher.Start()
 	}
 	return nil
 }
 
 func (s *IngestService) OnStop() {
-	if s.fetcher.IsRunning() {
-		s.fetcher.Stop()
+	// if s.fetcher.IsRunning() {
+	// 	s.fetcher.Stop()
+	// }
+	if s.eventFetcher.IsRunning() {
+		s.eventFetcher.Stop()
 	}
 	s.BaseService.OnStop()
 }
